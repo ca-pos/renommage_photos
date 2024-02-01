@@ -1,0 +1,26 @@
+# Cahier des chages
+
+- lire les fichiers raw tels qu'issus de la carte mémoire
+- lire les exif
+- les grouper par date, à l'intérieur du groupe, les ordonner chronologiquement
+- les afficher (vignettes)
+- les agrandir en cliquant dessus
+- boutons conserver et supprimer (suppression sur le support)
+- pour les photos conservées, selection d'une ou plusieurs photos
+- demander le titre du répertoire
+- demander s'il y a plusieurs répertoires pour une même journée
+- créer la date de prise de vue au format condensé par décennie
+- ajouter, si nécessaire, a. b. etc.
+- renommer au format suivant :
+    - date au format AAAA-MM-JJ entre parenthéses
+    - souligné, numéro d'ordre en 3 chiffres_ souligné
+    - nom d'origine (DSCxxxx)
+    - tiret haut
+    - date au format condensé
+    - tirer haut
+    - nom du répertoire
+- créer le répertoire au format suivant :
+    - date au format condensé
+    - tiret haut
+    - nom du répertoire
+- copier la photo à son emplacement
