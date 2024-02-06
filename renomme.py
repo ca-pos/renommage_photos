@@ -1,10 +1,14 @@
+import dis
 import sys
 from pathlib import Path
+from numpy import disp
 
 import rawpy
 import imageio
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QGridLayout, QWidget, QVBoxLayout, QPushButton, QGroupBox
-from PySide6.QtGui import QPixmap
+import pyexiv2
+from PIL import Image
+from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QGridLayout, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QGroupBox, QScrollArea
+from PySide6.QtGui import QPixmap, QTransform, QPalette, QIcon
 from PySide6.QtCore import QFile, QTextStream, QIODevice, QSize, Qt
 
 from constants import *
@@ -18,48 +22,29 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QGridLayout()
+        main_layout.setSpacing(0)
         central_widget.setLayout(main_layout)
 
-        display_wdg = QLabel('toto')
-        pixmap = QPixmap('./pictures/thumbails/_DSC8143.jpeg')
-        display_wdg.setPixmap(pixmap)
-        main_layout.addWidget(display_wdg)
-        
+        photo = Photo("./pictures/_DSC8055.NEF")
 
+        display = QScrollArea()
+        photos = QWidget()
+        display.setBackgroundRole(QPalette.Dark)
+        display_layout = QHBoxLayout()
+        display_layout.setSpacing(0)
+        display_layout.addStretch()
+        photos.setLayout(display_layout)
+        for i in range(0, 6):
+            v = Vignette()
+            display_layout.addWidget(v)
+        display.setWidget(photos)
+        display.setWidgetResizable(True)
+
+        main_layout.addWidget(display)
 #################################################################################
-class Photo():
-    def __init__(self, exif) -> None:
-        pass
-#################################################################################
-def main() -> bool:
-    app = QApplication(sys.argv)
-    main_window = MainWindow()
-    main_window.setFixedSize(main_size)
-    main_window.setWindowTitle("Renommage des photos")
-    
-    f = QFile("./style.qss")
-    f.open(QIODevice.ReadOnly)
-    app.setStyleSheet(QTextStream(f).readAll())
-
-    main_window.show()
-    sys.exit(app.exec())
-
-    return True
-
-
-################################################################################
-from PySide6.QtGui import QIcon, QFont, QPixmap, QMovie, QRegion
-from PySide6.QtCore import Qt
-
-
-
 class Vignette(QWidget):
-    def __init__(self):
+    def __init__(self, file: str = "./pictures/thumbnails/_DSC8055.jpeg"):
         super().__init__()
-
-        #self.setGeometry(200, 200, 700, 400)
-        self.setWindowTitle("Vignette")
-        self.setWindowIcon(QIcon('qt.png'))
 
         layout  = QGridLayout()
         self.setLayout(layout)
@@ -72,28 +57,63 @@ class Vignette(QWidget):
         groupbox.setLayout(vbox)
 
         label = QLabel(self)
-        pixmap = QPixmap("./pictures/thumbnails/_DSC8149.jpeg")
-        pixmap = pixmap.scaled(QSize(250,250), Qt.AspectRatioMode.KeepAspectRatio)
+        transform = QTransform().rotate(270)
+
+        pixmap = QPixmap(file)
+        pixmap = pixmap.transformed(transform)
+        pixmap = pixmap.scaled(PIXMAP_SCALE, Qt.AspectRatioMode.KeepAspectRatio)
         label.setPixmap(pixmap)
 
         titre = QLabel("_DSC8149.jpeg")
-        print(pixmap.size())
         titre.setAlignment(Qt.AlignCenter)
         titre.setStyleSheet("padding: 10px 10px 0px 10px")
 
-        btn = QPushButton("Supprimer")
+        btn = QPushButton("Masquer")
+        btn.setFixedSize(pixmap.width(), 25)
 
+        groupbox.setFixedHeight(pixmap.height()+btn.height()+45)
+        groupbox.setFixedWidth(1.1*pixmap.width())
+        
         vbox.addWidget(label)
-        #vbox.addWidget(titre)
         vbox.addWidget(btn)
         vbox.setSpacing(0)
         vbox.addStretch()
+#################################################################################
+class Photo():
+    def __init__(self, file: str) -> None:
+        path = Path(file)
+        self.original_path = path.cwd()
+        self.original_name = path.stem
+        self.original_suffix = path.suffix
+        
+        meta_data = pyexiv2.ImageMetadata(file)
+        meta_data.read()
+        self.date = meta_data['Exif.Image.DateTimeOriginal'].value.strftime('%Y %m %d')
+        self.orientation = meta_data['Exif.Image.Orientation'].value
+        if self.original_suffix == '.NEF':
+            self.nikon_file_number = meta_data['Exif.NikonFi.FileNumber'].value
+        else:
+            self.nikon_file_number = -1
 
+        with rawpy.imread(file) as raw:
+            pass
+#################################################################################
+#################################################################################
+def main() -> bool:
+    app = QApplication(sys.argv)
+    main_window = MainWindow()
+    main_window.setWindowIcon(QIcon('qt.png'))
+    main_window.setFixedSize(MAIN_SIZE)
+    main_window.setWindowTitle("Renommage des photos")
+    
+    f = QFile("./style.qss")
+    f.open(QIODevice.ReadOnly)
+    app.setStyleSheet(QTextStream(f).readAll())
 
-app = QApplication(sys.argv)
-window = Vignette()
-window.show()
-sys.exit(app.exec())
+    main_window.show()
+    sys.exit(app.exec())
 
-# if __name__ == '__main__':
-#     main()
+    return True
+
+if __name__ == '__main__':
+    main()

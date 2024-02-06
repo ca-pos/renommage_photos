@@ -1,5 +1,10 @@
 from PySide6.QtCore import QSize
 
-h_size = 1000
-v_size = 500
-main_size = QSize(h_size, v_size)
+H_SIZE = 1000
+V_SIZE = 500
+MAIN_SIZE = QSize(H_SIZE, V_SIZE)
+
+HI_RES = QSize(400, 400)
+
+PIXMAP_MAX_SIZE = 250
+PIXMAP_SCALE = QSize(PIXMAP_MAX_SIZE, PIXMAP_MAX_SIZE)

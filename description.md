@@ -3,7 +3,7 @@
 ## opérations à réaliser
 
 1. lire les fichiers raw tels qu'issus de la carte mémoire
-1. lire les exif
+1. lire les exif (dans un objet Photo)
 1. grouper photos par date et ordonnées chronologiquement
 1. les afficher (vignettes)
 1. afficher la date (jour)
@@ -29,13 +29,19 @@
 1. copier la photo à son emplacement
 
 ## objet photo
+### reçoit
+chemin vers une photo au format NEF
 ### paramètres
 1. thumbnail
 1. file_path
 1. file_name
 1. file_extension
 1. file_number
+1. orientation
 ### méthodes
+1. extraire un petit jpeg (thumbnail ?)
+1. les différentes composantes du chemin
+1. extraire les exif (date, orientation)
 
 ## widgets
 
