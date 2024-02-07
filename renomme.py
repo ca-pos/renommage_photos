@@ -1,17 +1,18 @@
-import dis
+# import dis
 import sys
-from pathlib import Path
-from numpy import disp
+# from pathlib import Path
+# from numpy import disp
 
-import rawpy
-import imageio
-import pyexiv2
+# import rawpy
+# import imageio
+# import pyexiv2
 from PIL import Image
 from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QGridLayout, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QGroupBox, QScrollArea
 from PySide6.QtGui import QPixmap, QTransform, QPalette, QIcon
 from PySide6.QtCore import QFile, QTextStream, QIODevice, QSize, Qt
 
 from constants import *
+from sub import *
 #################################################################################
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -25,21 +26,31 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(0)
         central_widget.setLayout(main_layout)
 
-        photo = Photo("./pictures/_DSC8055.NEF")
-
+        # création de la scrollarea display
         display = QScrollArea()
-        photos = QWidget()
         display.setBackgroundRole(QPalette.Dark)
+
+        # création du widget photos
+        photos = QWidget()
         display_layout = QHBoxLayout()
         display_layout.setSpacing(0)
         display_layout.addStretch()
         photos.setLayout(display_layout)
-        for i in range(0, 6):
+
+        # ici il faut construire le widget photos
+
+        for i in range(0, len(photos_test)):
+            ph_name = f"./pictures/_DSC{photos_test[i]}.NEF"
+            print(ph_name)
+            photo = Photo(ph_name)
             v = Vignette()
             display_layout.addWidget(v)
+
+        # ajouter photos à la scrollaera
         display.setWidget(photos)
         display.setWidgetResizable(True)
 
+        # ajouter la scrollaera au layout principal (du central widget)
         main_layout.addWidget(display)
 #################################################################################
 class Vignette(QWidget):
@@ -78,25 +89,6 @@ class Vignette(QWidget):
         vbox.addWidget(btn)
         vbox.setSpacing(0)
         vbox.addStretch()
-#################################################################################
-class Photo():
-    def __init__(self, file: str) -> None:
-        path = Path(file)
-        self.original_path = path.cwd()
-        self.original_name = path.stem
-        self.original_suffix = path.suffix
-        
-        meta_data = pyexiv2.ImageMetadata(file)
-        meta_data.read()
-        self.date = meta_data['Exif.Image.DateTimeOriginal'].value.strftime('%Y %m %d')
-        self.orientation = meta_data['Exif.Image.Orientation'].value
-        if self.original_suffix == '.NEF':
-            self.nikon_file_number = meta_data['Exif.NikonFi.FileNumber'].value
-        else:
-            self.nikon_file_number = -1
-
-        with rawpy.imread(file) as raw:
-            pass
 #################################################################################
 #################################################################################
 def main() -> bool:
