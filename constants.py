@@ -1,5 +1,7 @@
 from PySide6.QtCore import QSize
 
+TMP_DIR = './tmp'
+
 H_SIZE = 1000
 V_SIZE = 500
 MAIN_SIZE = QSize(H_SIZE, V_SIZE)

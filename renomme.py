@@ -1,15 +1,11 @@
-# import dis
 import sys
-# from pathlib import Path
-# from numpy import disp
+# from tempfile import gettempdir, mkstemp, tempdir
+import shutil
 
-# import rawpy
-# import imageio
-# import pyexiv2
-from PIL import Image
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QGridLayout, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QGroupBox, QScrollArea
-from PySide6.QtGui import QPixmap, QTransform, QPalette, QIcon
-from PySide6.QtCore import QFile, QTextStream, QIODevice, QSize, Qt
+# from PIL import Image
+from PySide6.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QHBoxLayout, QScrollArea
+from PySide6.QtGui import QPalette, QIcon, QImage
+from PySide6.QtCore import QFile, QTextStream, QIODevice
 
 from constants import *
 from sub import *
@@ -37,13 +33,13 @@ class MainWindow(QMainWindow):
         display_layout.addStretch()
         photos.setLayout(display_layout)
 
-        # ici il faut construire le widget photos
+        # ici il faut construire (remplir) le widget photos
 
         for i in range(0, len(photos_test)):
             ph_name = f"./pictures/_DSC{photos_test[i]}.NEF"
-            print(ph_name)
             photo = Photo(ph_name)
-            v = Vignette()
+            v = Thumbnails(photo)
+            
             display_layout.addWidget(v)
 
         # ajouter photos à la scrollaera
@@ -52,43 +48,6 @@ class MainWindow(QMainWindow):
 
         # ajouter la scrollaera au layout principal (du central widget)
         main_layout.addWidget(display)
-#################################################################################
-class Vignette(QWidget):
-    def __init__(self, file: str = "./pictures/thumbnails/_DSC8055.jpeg"):
-        super().__init__()
-
-        layout  = QGridLayout()
-        self.setLayout(layout)
-
-        groupbox = QGroupBox("_DSC8149.jpeg")
-
-        layout.addWidget(groupbox)
-
-        vbox = QVBoxLayout()
-        groupbox.setLayout(vbox)
-
-        label = QLabel(self)
-        transform = QTransform().rotate(270)
-
-        pixmap = QPixmap(file)
-        pixmap = pixmap.transformed(transform)
-        pixmap = pixmap.scaled(PIXMAP_SCALE, Qt.AspectRatioMode.KeepAspectRatio)
-        label.setPixmap(pixmap)
-
-        titre = QLabel("_DSC8149.jpeg")
-        titre.setAlignment(Qt.AlignCenter)
-        titre.setStyleSheet("padding: 10px 10px 0px 10px")
-
-        btn = QPushButton("Masquer")
-        btn.setFixedSize(pixmap.width(), 25)
-
-        groupbox.setFixedHeight(pixmap.height()+btn.height()+45)
-        groupbox.setFixedWidth(1.1*pixmap.width())
-        
-        vbox.addWidget(label)
-        vbox.addWidget(btn)
-        vbox.setSpacing(0)
-        vbox.addStretch()
 #################################################################################
 #################################################################################
 def main() -> bool:
@@ -103,9 +62,8 @@ def main() -> bool:
     app.setStyleSheet(QTextStream(f).readAll())
 
     main_window.show()
+    shutil.rmtree(TMP_DIR)
     sys.exit(app.exec())
-
-    return True
 
 if __name__ == '__main__':
     main()
