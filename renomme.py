@@ -1,10 +1,8 @@
 import sys
-# from tempfile import gettempdir, mkstemp, tempdir
 import shutil
 
-# from PIL import Image
-from PySide6.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QHBoxLayout, QScrollArea
-from PySide6.QtGui import QPalette, QIcon, QImage
+from PySide6.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget
+from PySide6.QtGui import QIcon
 from PySide6.QtCore import QFile, QTextStream, QIODevice
 
 from constants import *
@@ -22,35 +20,23 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(0)
         central_widget.setLayout(main_layout)
 
+        photos_test = (7986, 8064, 8080, 8081, 8084, 8134, 8135, 8145, 8146, 8147, 8148, 8149)
+
         # création de la scrollarea display
-        display = QScrollArea()
-        display.setBackgroundRole(QPalette.Dark)
-
+        self.display = Display()
         # création du widget photos
-        photos = QWidget()
-        display_layout = QHBoxLayout()
-        display_layout.setSpacing(0)
-        display_layout.addStretch()
-        photos.setLayout(display_layout)
-
-        # ici il faut construire (remplir) le widget photos
-
-        for i in range(0, len(photos_test)):
-            ph_name = f"./pictures/_DSC{photos_test[i]}.NEF"
-            photo = Photo(ph_name)
-            v = Thumbnails(photo)
-            
-            display_layout.addWidget(v)
-
+        photos = Photos(photos_test)
         # ajouter photos à la scrollaera
-        display.setWidget(photos)
-        display.setWidgetResizable(True)
-
+        self.display.setWidget(photos)
+        self.display.setWidgetResizable(True)
         # ajouter la scrollaera au layout principal (du central widget)
-        main_layout.addWidget(display)
+        main_layout.addWidget(self.display)
+#--------------------------------------------------------------------------------
+def refresh_display(photo_list: list, ):
+        pass
 #################################################################################
 #################################################################################
-def main() -> bool:
+def main():
     app = QApplication(sys.argv)
     main_window = MainWindow()
     main_window.setWindowIcon(QIcon('qt.png'))
