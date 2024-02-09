@@ -6,7 +6,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtCore import QFile, QTextStream, QIODevice
 
 from constants import *
-from sub import *
+from classes import *
 #################################################################################
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -24,10 +24,10 @@ class MainWindow(QMainWindow):
 
         # création de la scrollarea display
         self.display = Display()
-        # création du widget photos
-        photos = Photos(photos_test)
+        # création du widget gallery
+        gallery = Gallery(photos_test)
         # ajouter photos à la scrollaera
-        self.display.setWidget(photos)
+        self.display.setWidget(gallery)
         self.display.setWidgetResizable(True)
         # ajouter la scrollaera au layout principal (du central widget)
         main_layout.addWidget(self.display)

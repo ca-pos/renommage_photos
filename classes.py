@@ -3,7 +3,7 @@ import tempfile, os
 
 from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QGroupBox, QLabel, QPushButton, QHBoxLayout, QScrollArea
 from PySide6.QtGui import QPixmap, QTransform, QPalette
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 
 from constants import *
 
@@ -49,7 +49,7 @@ class Photo():
             thumb = raw.extract_thumb()
         self.thumb = thumb.data
 #################################################################################
-class Photos(QWidget):
+class Gallery(QWidget):
     def __init__(self, photos_test):
         super().__init__()
         layout = QHBoxLayout()
@@ -73,6 +73,7 @@ class Photos(QWidget):
 
 #################################################################################
 class Thumbnails(QWidget):
+    clicked = Signal(str)
     def __init__(self, photo):
         super().__init__()
 
@@ -116,6 +117,7 @@ class Thumbnails(QWidget):
         vbox.setSpacing(0)
         vbox.addStretch()
 
-    def masquer(self, e):
+    def masquer(self):
         print(self.sender().value)
+        self.clicked.emit(self.sender().value)
 #################################################################################
