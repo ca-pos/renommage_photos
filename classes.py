@@ -3,7 +3,7 @@ import tempfile, os
 
 from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QGroupBox, QLabel, QPushButton, QHBoxLayout, QScrollArea
 from PySide6.QtGui import QPixmap, QTransform, QPalette
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 
 from constants import *
 
@@ -12,10 +12,11 @@ import pyexiv2
 
 #################################################################################
 class Display(QScrollArea):
-    def __init__(self) -> None:
+    def __init__(self, gallery) -> None:
         super().__init__()
         self.setBackgroundRole(QPalette.Dark)
-
+        self.setWidget(gallery)
+        self.setWidgetResizable(True)
 #################################################################################
 class Photo():
     """
@@ -50,18 +51,33 @@ class Photo():
         self.thumb = thumb.data
 #################################################################################
 class Gallery(QWidget):
-    def __init__(self, photos_test):
+    def __init__(self, photos, hide = '8080'):
         super().__init__()
+
+        self.hide_this = hide
+        try:
+            self.hides.append(self.hide_this)
+        except:
+            self.hides = (self.hide_this)
+        if photos:
+            self.photos = photos
+        self.populate_gallery()
+
+    def populate_gallery(self):
         layout = QHBoxLayout()
         layout.setSpacing(0)
         layout.addStretch()
         self.setLayout(layout)
-
-        for i in range(0, len(photos_test)):
-            photo_file = f"./pictures/_DSC{photos_test[i]}.NEF"
+        for i in range(0, len(self.photos)):
+            if str(self.photos[i]) in self.hides:
+                continue
+            photo_file = f"./pictures/_DSC{self.photos[i]}.NEF"
             photo = Photo(photo_file)
             th = Thumbnails(photo)
             layout.addWidget(th)
+
+    def refresh_gallery(self):
+        pass
 
             # print(layout.count(), layout.indexOf(th))
 
@@ -105,7 +121,7 @@ class Thumbnails(QWidget):
         label.setPixmap(pixmap)
 
         btn = QPushButton("Masquer")
-        btn.value = photo.original_name
+        btn.value = photo.original_name[-4:]
         btn.setFixedSize(pixmap.width(), 25)
         btn.clicked.connect(self.masquer)
 
@@ -116,8 +132,8 @@ class Thumbnails(QWidget):
         vbox.addWidget(btn)
         vbox.setSpacing(0)
         vbox.addStretch()
-
+    @Slot(str)
     def masquer(self):
-        print(self.sender().value)
+        # print(':', self.sender().value)
         self.clicked.emit(self.sender().value)
 #################################################################################

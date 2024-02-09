@@ -22,18 +22,12 @@ class MainWindow(QMainWindow):
 
         photos_test = (7986, 8064, 8080, 8081, 8084, 8134, 8135, 8145, 8146, 8147, 8148, 8149)
 
-        # création de la scrollarea display
-        self.display = Display()
         # création du widget gallery
         gallery = Gallery(photos_test)
-        # ajouter photos à la scrollaera
-        self.display.setWidget(gallery)
-        self.display.setWidgetResizable(True)
+        # création de la scrollarea display qui contient gallery
+        self.display = Display(gallery)
         # ajouter la scrollaera au layout principal (du central widget)
         main_layout.addWidget(self.display)
-#--------------------------------------------------------------------------------
-def refresh_display(photo_list: list, ):
-        pass
 #################################################################################
 #################################################################################
 def main():
