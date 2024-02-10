@@ -20,12 +20,15 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(0)
         central_widget.setLayout(main_layout)
 
-        photos_test = (7986, 8064, 8080, 8081, 8084, 8134, 8135, 8145, 8146, 8147, 8148, 8149)
+        # photos_test = ('_DSC7986.NEF', '_DSC8064.NEF', '_DSC8080.NEF', '_DSC8081.NEF', '_DSC8084.NEF', '_DSC8134.NEF', '_DSC8135.NEF', '_DSC8145.NEF', '_DSC8146.NEF', '_DSC8147.NEF', '_DSC8148.NEF', '_DSC8149.NEF')
+        # photos_test = ('_DSC7986.NEF', '_DSC8064.NEF', '_DSC8080.NEF')
+        photos_test = ('_DSC7986.NEF', '_DSC8064.NEF')
 
         # création du widget gallery
-        gallery = Gallery(photos_test)
+        gallery = Gallery(photos_test, hide = '8081')
         # création de la scrollarea display qui contient gallery
         self.display = Display(gallery)
+        
         # ajouter la scrollaera au layout principal (du central widget)
         main_layout.addWidget(self.display)
 #################################################################################

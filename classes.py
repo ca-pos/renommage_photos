@@ -1,14 +1,15 @@
 from pathlib import Path
 import tempfile, os
 
+import rawpy
+import pyexiv2
+
 from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QGroupBox, QLabel, QPushButton, QHBoxLayout, QScrollArea
 from PySide6.QtGui import QPixmap, QTransform, QPalette
 from PySide6.QtCore import Qt, Signal, Slot
+from PIL import Image, ImageFilter
 
 from constants import *
-
-import rawpy
-import pyexiv2
 
 #################################################################################
 class Display(QScrollArea):
@@ -51,17 +52,17 @@ class Photo():
         self.thumb = thumb.data
 #################################################################################
 class Gallery(QWidget):
-    def __init__(self, photos, hide = '8080'):
+    hides = list()
+    photos = list()
+    def __init__(self, photos = None, hide = ''):
         super().__init__()
 
-        self.hide_this = hide
-        try:
-            self.hides.append(self.hide_this)
-        except:
-            self.hides = (self.hide_this)
+        Gallery.hides.append(hide)
         if photos:
-            self.photos = photos
+            Gallery.photos = photos
+
         self.populate_gallery()
+        
 
     def populate_gallery(self):
         layout = QHBoxLayout()
@@ -69,15 +70,17 @@ class Gallery(QWidget):
         layout.addStretch()
         self.setLayout(layout)
         for i in range(0, len(self.photos)):
-            if str(self.photos[i]) in self.hides:
+            if str(self.photos[i]) in Gallery.hides:
                 continue
-            photo_file = f"./pictures/_DSC{self.photos[i]}.NEF"
+            photo_file = f"./pictures/{self.photos[i]}"
             photo = Photo(photo_file)
             th = Thumbnails(photo)
+            th.setStyleSheet('background-color: #ee6')
+            th.changed.connect(self.refresh_gallery)
             layout.addWidget(th)
 
-    def refresh_gallery(self):
-        pass
+    def refresh_gallery(self, e):
+        print('>>>', e)
 
             # print(layout.count(), layout.indexOf(th))
 
@@ -89,9 +92,11 @@ class Gallery(QWidget):
 
 #################################################################################
 class Thumbnails(QWidget):
-    clicked = Signal(str)
+    changed = Signal(str)
     def __init__(self, photo):
         super().__init__()
+
+        self.photo = photo
 
         f_tmp = tempfile.mkstemp(suffix='.jpeg')[1]
         os.makedirs(TMP_DIR, exist_ok=True)
@@ -99,12 +104,15 @@ class Thumbnails(QWidget):
 
         with open(f_tmp, 'wb') as f:
             f.write(photo.thumb)
+        img = Image.open(f_tmp)
+        img_blur = img.filter(ImageFilter.GaussianBlur(80))
+        img_blur.save(f_tmp)
 
         layout  = QGridLayout()
         self.setLayout(layout)
 
-        groupbox = QGroupBox(photo.original_name)
-        print(photo.original_name)
+        groupbox = QGroupBox(self.photo.original_name)
+        print(self.photo.original_name)
 
         layout.addWidget(groupbox)
 
@@ -114,26 +122,34 @@ class Thumbnails(QWidget):
         label = QLabel(self)
 
         pixmap = QPixmap(f_tmp)
-        if photo.orientation == 8:
+        if self.photo.orientation == 8:
             transform = QTransform().rotate(270)
             pixmap = pixmap.transformed(transform)
         pixmap = pixmap.scaled(PIXMAP_SCALE, Qt.AspectRatioMode.KeepAspectRatio)
         label.setPixmap(pixmap)
 
-        btn = QPushButton("Masquer")
-        btn.value = photo.original_name[-4:]
-        btn.setFixedSize(pixmap.width(), 25)
-        btn.clicked.connect(self.masquer)
+        self.btn = QPushButton("Masquer")
+        self.btn.value = self.photo.original_name[-4:]
+        self.btn.setCheckable(True)
+        self.btn.setStyleSheet('background-color: #6e6')
+        self.btn.setFixedSize(pixmap.width(), 25)
+        self.btn.clicked.connect(self.masquer)
 
-        groupbox.setFixedHeight(pixmap.height()+btn.height()+45)
-        groupbox.setFixedWidth(1.1*pixmap.width())
+        groupbox.setFixedHeight(pixmap.height()+self.btn.height()+45)
+        groupbox.setFixedWidth(1.2*pixmap.width())
         
         vbox.addWidget(label)
-        vbox.addWidget(btn)
+        vbox.addWidget(self.btn)
         vbox.setSpacing(0)
         vbox.addStretch()
     @Slot(str)
     def masquer(self):
-        # print(':', self.sender().value)
-        self.clicked.emit(self.sender().value)
+        if self.btn.isChecked():
+            self.btn.setText('Afficher')
+            self.btn.setStyleSheet('background-color: #e66')
+        else:
+            self.btn.setText('Masquer')
+            self.btn.setStyleSheet('background-color: #6e6')
+        sig = self.photo.original_name[:]+'.jpeg'
+        self.changed.emit(sig)
 #################################################################################
