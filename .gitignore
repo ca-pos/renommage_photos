@@ -165,3 +165,5 @@ qt.png
 img.jpeg
 thumb.jpeg
 push_branch.txt
+tmp/*
+

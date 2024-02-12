@@ -31,7 +31,8 @@ class PhotoExif():
         nikon_file_number [int] : si Nikon (ext = NEF), le numéro d'ordre de la photo
         thumb [bytes]           : le fichier thumbnail du fichier raw (format jpeg)
     """
-    def __init__(self, file: str) -> None:
+    def __init__(self, file) -> None:
+
         path = Path(file)
         self.original_path = str(path.cwd())
         self.original_name = path.stem
@@ -45,53 +46,64 @@ class PhotoExif():
             self.nikon_file_number = meta_data['Exif.NikonFi.FileNumber'].value
         else:
             self.nikon_file_number = -1
-
-        # with rawpy.imread(file) as raw:
-        #     thumb = raw.extract_thumb()
-        # self.thumb = thumb.data
 #################################################################################
 class Gallery(QWidget):
     hides = list()
-    # photos = list()
-    def __init__(self, photos = None, hide = ''):
+    def __init__(self, hide = ''):
         super().__init__()
-
         Gallery.hides.append(hide)
-        if photos:
-            Gallery.photos = photos
-
         self.populate_gallery()  
 
     def populate_gallery(self):
-        pathlist = Path(TMP_DIR).glob('*.jpeg')
+        pathlist_jpeg = Path(TMP_DIR).glob('*.jpeg')
+        self.blur = ''
+
+        fichier_raw = [str(fichier) for fichier in Path('./pictures').glob('*.NEF')]
+        fichier_raw = sorted(fichier_raw)
+
         layout = QHBoxLayout()
         layout.setSpacing(0)
         layout.addStretch()
         self.setLayout(layout)
 
-        # for i in range(len(Gallery.hides)):
-        print([ f for f in Gallery.hides])
-        for f in pathlist:
-            print(str(f).split('/')[-1].replace(BLURRED, '').split('.')[-2])
-        l =[str(fichier) for fichier in Path(TMP_DIR).glob('*.jpeg') if str(fichier).find(BLURRED) == -1]
-        print(l)
-        for i in range(0, len(self.photos)):
-            if self.photos[i] in Gallery.hides[-5:]:
+        # for f in pathlist_jpeg:
+        #     continue
+        #     print(str(f).split('/')[-1].replace(BLURRED, '').split('.')[-2])
+
+        # clear_photos_list =[str(fichier) for fichier in Path(TMP_DIR).glob('*.jpeg') if str(fichier).find(BLURRED) == -1]
+
+        for i in range(len(fichier_raw)):
+            if i > 1:
                 continue
-            photo_file = f"./pictures/{self.photos[i]}"
+            photo_file = fichier_raw[i]
+            print('@', photo_file)
+
+            for j in range(len(Gallery.hides)):
+                print('#j', j, Gallery.hides)
+                if photo_file.find(Gallery.hides[j]) != -1:
+                    print(BLURRED)
+                # else:
+                #     print('*')
+            # print(self.blur)
+            print('thumbnails')
+                # print('+j', j, photo_file.find(Gallery.hides[j]))
             th = Thumbnails(photo_file)
             th.setStyleSheet('background-color: #ee6')
             th.changed.connect(self.refresh_gallery)
             layout.addWidget(th)
 
     def refresh_gallery(self, e):
-        print('+', e)
+        print('-', e)
+        print('+', Gallery.hides)
+        if e in Gallery.hides:
+            self.blur = ''
+        else:
+            self.blur = BLURRED
 #################################################################################
 class Thumbnails(QWidget):
     changed = Signal(str)
     def __init__(self, photo):
         super().__init__()
-
         self.photo = PhotoExif(photo)
         self.full_path_tmp = TMP_DIR + self.photo.original_name + '.jpeg'
 
@@ -99,7 +111,6 @@ class Thumbnails(QWidget):
         self.setLayout(layout)
 
         groupbox = QGroupBox(self.photo.original_name)
-        # print(self.photo.original_name)
 
         layout.addWidget(groupbox)
 
@@ -146,5 +157,6 @@ class Thumbnails(QWidget):
         else:
             self.btn.setText('Masquer')
             self.btn.setStyleSheet('background-color: #6e6')
+
         self.changed.emit(sig)
 #################################################################################

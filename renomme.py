@@ -22,15 +22,16 @@ class MainWindow(QMainWindow):
         central_widget.setLayout(main_layout)
 
         # photos_test = ('_DSC7986.NEF', '_DSC8064.NEF', '_DSC8080.NEF', '_DSC8081.NEF', '_DSC8084.NEF', '_DSC8134.NEF', '_DSC8135.NEF', '_DSC8145.NEF', '_DSC8146.NEF', '_DSC8147.NEF', '_DSC8148.NEF', '_DSC8149.NEF')
-        photos_test = ('_DSC7986.NEF', '_DSC8064.NEF', '_DSC8080.NEF')
-        # photos_test = ('_DSC7986.NEF', '_DSC8064.NEF')
+        # photos_test = ('_DSC7986.NEF', '_DSC8064.NEF', '_DSC8080.NEF')
+        photos_test = ('_DSC7986.NEF', '_DSC8064.NEF')
 
         # Création d'un répertoire temporaire pour les JPEG embarqués dans les RAW
         self.create_thumb_jpeg(photos_test)
 
         # création du widget gallery
-        gallery = Gallery(photos_test, hide = '_DSC8080')
-        gallery1 = Gallery(photos_test, hide = '_DSC8081')
+        gallery = Gallery(hide = '_DSC78064')
+        print('------------------------')
+        gallery1 = Gallery(hide = '_DSC7986')
         # print(Gallery.hides)
         
     
