@@ -1,5 +1,4 @@
 from pathlib import Path
-import tempfile, os
 
 import rawpy
 import pyexiv2
@@ -19,7 +18,7 @@ class Display(QScrollArea):
         self.setWidget(gallery)
         self.setWidgetResizable(True)
 #################################################################################
-class Photo():
+class PhotoExif():
     """
     Photo Définit un objet Photo à partir d'un fichier NEF (RAW de Nikon)
     Reçoit
@@ -34,7 +33,7 @@ class Photo():
     """
     def __init__(self, file: str) -> None:
         path = Path(file)
-        # self.original_path = path.cwd()
+        self.original_path = str(path.cwd())
         self.original_name = path.stem
         self.original_suffix = path.suffix
         
@@ -47,13 +46,13 @@ class Photo():
         else:
             self.nikon_file_number = -1
 
-        with rawpy.imread(file) as raw:
-            thumb = raw.extract_thumb()
-        self.thumb = thumb.data
+        # with rawpy.imread(file) as raw:
+        #     thumb = raw.extract_thumb()
+        # self.thumb = thumb.data
 #################################################################################
 class Gallery(QWidget):
     hides = list()
-    photos = list()
+    # photos = list()
     def __init__(self, photos = None, hide = ''):
         super().__init__()
 
@@ -61,58 +60,46 @@ class Gallery(QWidget):
         if photos:
             Gallery.photos = photos
 
-        self.populate_gallery()
-        
+        self.populate_gallery()  
 
     def populate_gallery(self):
+        pathlist = Path(TMP_DIR).glob('*.jpeg')
         layout = QHBoxLayout()
         layout.setSpacing(0)
         layout.addStretch()
         self.setLayout(layout)
+
+        # for i in range(len(Gallery.hides)):
+        print([ f for f in Gallery.hides])
+        for f in pathlist:
+            print(str(f).split('/')[-1].replace(BLURRED, '').split('.')[-2])
+        l =[str(fichier) for fichier in Path(TMP_DIR).glob('*.jpeg') if str(fichier).find(BLURRED) == -1]
+        print(l)
         for i in range(0, len(self.photos)):
-            if str(self.photos[i]) in Gallery.hides:
+            if self.photos[i] in Gallery.hides[-5:]:
                 continue
             photo_file = f"./pictures/{self.photos[i]}"
-            photo = Photo(photo_file)
-            th = Thumbnails(photo)
+            th = Thumbnails(photo_file)
             th.setStyleSheet('background-color: #ee6')
             th.changed.connect(self.refresh_gallery)
             layout.addWidget(th)
 
     def refresh_gallery(self, e):
-        print('>>>', e)
-
-            # print(layout.count(), layout.indexOf(th))
-
-        # cpt = layout.count()
-        # item = layout.itemAt(1)
-        # w = item.widget()
-        # w.deleteLater()
-        # print(cpt)
-
+        print('+', e)
 #################################################################################
 class Thumbnails(QWidget):
     changed = Signal(str)
     def __init__(self, photo):
         super().__init__()
 
-        self.photo = photo
-
-        f_tmp = tempfile.mkstemp(suffix='.jpeg')[1]
-        os.makedirs(TMP_DIR, exist_ok=True)
-        tempfile.tempdir = TMP_DIR
-
-        with open(f_tmp, 'wb') as f:
-            f.write(photo.thumb)
-        img = Image.open(f_tmp)
-        img_blur = img.filter(ImageFilter.GaussianBlur(80))
-        img_blur.save(f_tmp)
+        self.photo = PhotoExif(photo)
+        self.full_path_tmp = TMP_DIR + self.photo.original_name + '.jpeg'
 
         layout  = QGridLayout()
         self.setLayout(layout)
 
         groupbox = QGroupBox(self.photo.original_name)
-        print(self.photo.original_name)
+        # print(self.photo.original_name)
 
         layout.addWidget(groupbox)
 
@@ -121,7 +108,7 @@ class Thumbnails(QWidget):
 
         label = QLabel(self)
 
-        pixmap = QPixmap(f_tmp)
+        pixmap = QPixmap(self.full_path_tmp)
         if self.photo.orientation == 8:
             transform = QTransform().rotate(270)
             pixmap = pixmap.transformed(transform)
@@ -142,14 +129,22 @@ class Thumbnails(QWidget):
         vbox.addWidget(self.btn)
         vbox.setSpacing(0)
         vbox.addStretch()
+#--------------------------------------------------------------------------------
+    def blur_image(self):
+        full_blurred_path = self.full_path_tmp[:-5] + BLURRED + self.full_path_tmp[-5:]
+        img = Image.open(self.full_path_tmp)
+        img_blur = img.filter(ImageFilter.GaussianBlur(80))
+        img_blur.save(full_blurred_path)        
+#--------------------------------------------------------------------------------
     @Slot(str)
     def masquer(self):
+        sig = self.photo.original_name[:]
         if self.btn.isChecked():
             self.btn.setText('Afficher')
             self.btn.setStyleSheet('background-color: #e66')
+            self.blur_image()
         else:
             self.btn.setText('Masquer')
             self.btn.setStyleSheet('background-color: #6e6')
-        sig = self.photo.original_name[:]+'.jpeg'
         self.changed.emit(sig)
 #################################################################################

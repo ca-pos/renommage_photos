@@ -1,6 +1,7 @@
 from PySide6.QtCore import QSize
 
-TMP_DIR = './tmp'
+TMP_DIR = './tmp/'
+BLURRED = '_blurred'
 
 H_SIZE = 1000
 V_SIZE = 500
