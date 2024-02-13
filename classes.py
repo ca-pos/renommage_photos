@@ -20,16 +20,17 @@ class Display(QScrollArea):
 #################################################################################
 class PhotoExif():
     """
-    Photo Définit un objet Photo à partir d'un fichier NEF (RAW de Nikon)
+    PhotoExif Définit un objet PhotoEXIF à partir d'un fichier NEF (RAW de Nikon). L'objet contient les informations exif extraites du fichier RAW et nécessaires pour le fonctionnement de renomme.py
+
     Reçoit
         file [str] : chemin du fichier NEF
+
     Attributs
         original_name [str]     : nom du fichier original (sur la carte mémoire)
         original_suffix [str]   : l'extension du fichier original (NEF pour Nikon)
         date [%Y %m %d]         : date de la prise de vue
         oriention [int]         : 8 = portrait, autre valeur = paysage
         nikon_file_number [int] : si Nikon (ext = NEF), le numéro d'ordre de la photo
-        thumb [bytes]           : le fichier thumbnail du fichier raw (format jpeg)
     """
     def __init__(self, file) -> None:
 
@@ -48,15 +49,18 @@ class PhotoExif():
             self.nikon_file_number = -1
 #################################################################################
 class Gallery(QWidget):
-    hides = list()
-    def __init__(self, hide = ''):
+    hidden_list = list()
+    changed = Signal(str)
+    def __init__(self):
         super().__init__()
-        Gallery.hides.append(hide)
+
+        # Gallery.hidden_list.append( '_DSC7986.NEF')        
+
         self.populate_gallery()  
 
     def populate_gallery(self):
-        pathlist_jpeg = Path(TMP_DIR).glob('*.jpeg')
-        self.blur = ''
+
+        # self.blur = ''
 
         fichier_raw = [str(fichier) for fichier in Path('./pictures').glob('*.NEF')]
         fichier_raw = sorted(fichier_raw)
@@ -66,54 +70,39 @@ class Gallery(QWidget):
         layout.addStretch()
         self.setLayout(layout)
 
-        # for f in pathlist_jpeg:
-        #     continue
-        #     print(str(f).split('/')[-1].replace(BLURRED, '').split('.')[-2])
-
-        # clear_photos_list =[str(fichier) for fichier in Path(TMP_DIR).glob('*.jpeg') if str(fichier).find(BLURRED) == -1]
-
         for i in range(len(fichier_raw)):
-            if i > 1:
+            if i > 3:
                 continue
             photo_file = fichier_raw[i]
-            print('@', photo_file)
-
-            for j in range(len(Gallery.hides)):
-                print('#j', j, Gallery.hides)
-                if photo_file.find(Gallery.hides[j]) != -1:
-                    print(BLURRED)
-                # else:
-                #     print('*')
-            # print(self.blur)
-            print('thumbnails')
-                # print('+j', j, photo_file.find(Gallery.hides[j]))
-            th = Thumbnails(photo_file)
-            th.setStyleSheet('background-color: #ee6')
-            th.changed.connect(self.refresh_gallery)
+            blur = ''
+            for j in range(len(Gallery.hidden_list)):
+                if photo_file.find(Gallery.hidden_list[j]) != -1:
+                    blur = BLURRED
+            th = Thumbnails(photo_file, blur)
+            print(photo_file)
+            th.setStyleSheet('background-color: #ee6')  # background jaune
+            th.changed.connect(self.refresh_blur_list)
             layout.addWidget(th)
 
-    def refresh_gallery(self, e):
-        print('-', e)
-        print('+', Gallery.hides)
-        if e in Gallery.hides:
-            self.blur = ''
-        else:
-            self.blur = BLURRED
+    def refresh_blur_list(self, e):
+        try:
+            index = Gallery.hidden_list.index(e)
+            Gallery.hidden_list.pop(index)
+        except ValueError:
+            Gallery.hidden_list.append(e)
+        self.changed.emit('appel')
 #################################################################################
 class Thumbnails(QWidget):
     changed = Signal(str)
-    def __init__(self, photo):
+    def __init__(self, photo, blur):
         super().__init__()
         self.photo = PhotoExif(photo)
-        self.full_path_tmp = TMP_DIR + self.photo.original_name + '.jpeg'
+        self.full_path_tmp = TMP_DIR + self.photo.original_name + blur + '.jpeg'
 
         layout  = QGridLayout()
         self.setLayout(layout)
-
         groupbox = QGroupBox(self.photo.original_name)
-
         layout.addWidget(groupbox)
-
         vbox = QVBoxLayout()
         groupbox.setLayout(vbox)
 
@@ -127,7 +116,7 @@ class Thumbnails(QWidget):
         label.setPixmap(pixmap)
 
         self.btn = QPushButton("Masquer")
-        self.btn.value = self.photo.original_name[-4:]
+        # self.btn.value = self.photo.original_name[-4:]
         self.btn.setCheckable(True)
         self.btn.setStyleSheet('background-color: #6e6')
         self.btn.setFixedSize(pixmap.width(), 25)
@@ -143,11 +132,13 @@ class Thumbnails(QWidget):
 #--------------------------------------------------------------------------------
     def blur_image(self):
         full_blurred_path = self.full_path_tmp[:-5] + BLURRED + self.full_path_tmp[-5:]
+        if Path(full_blurred_path).exists():
+            return
         img = Image.open(self.full_path_tmp)
         img_blur = img.filter(ImageFilter.GaussianBlur(80))
         img_blur.save(full_blurred_path)        
 #--------------------------------------------------------------------------------
-    @Slot(str)
+    @Slot(result=str)
     def masquer(self):
         sig = self.photo.original_name[:]
         if self.btn.isChecked():
@@ -157,6 +148,5 @@ class Thumbnails(QWidget):
         else:
             self.btn.setText('Masquer')
             self.btn.setStyleSheet('background-color: #6e6')
-
         self.changed.emit(sig)
 #################################################################################
