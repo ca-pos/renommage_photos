@@ -1,10 +1,9 @@
 from pathlib import Path
 
-import rawpy
 import pyexiv2
 
 from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QGroupBox, QLabel, QPushButton, QHBoxLayout, QScrollArea
-from PySide6.QtGui import QPixmap, QTransform, QPalette
+from PySide6.QtGui import QPixmap, QTransform, QPalette, QBrush
 from PySide6.QtCore import Qt, Signal, Slot
 from PIL import Image, ImageFilter
 
@@ -17,6 +16,7 @@ class Display(QScrollArea):
         self.setBackgroundRole(QPalette.Dark)
         self.setWidget(gallery)
         self.setWidgetResizable(True)
+        print('display')
 #################################################################################
 class PhotoExif():
     """
@@ -54,14 +54,6 @@ class Gallery(QWidget):
     def __init__(self):
         super().__init__()
 
-        # Gallery.hidden_list.append( '_DSC7986.NEF')        
-
-        self.populate_gallery()  
-
-    def populate_gallery(self):
-
-        # self.blur = ''
-
         fichier_raw = [str(fichier) for fichier in Path('./pictures').glob('*.NEF')]
         fichier_raw = sorted(fichier_raw)
 
@@ -79,11 +71,11 @@ class Gallery(QWidget):
                 if photo_file.find(Gallery.hidden_list[j]) != -1:
                     blur = BLURRED
             th = Thumbnails(photo_file, blur)
-            print(photo_file)
             th.setStyleSheet('background-color: #ee6')  # background jaune
             th.changed.connect(self.refresh_blur_list)
             layout.addWidget(th)
-
+#--------------------------------------------------------------------------------            
+    @Slot(result=str)
     def refresh_blur_list(self, e):
         try:
             index = Gallery.hidden_list.index(e)
@@ -109,21 +101,26 @@ class Thumbnails(QWidget):
         label = QLabel(self)
 
         pixmap = QPixmap(self.full_path_tmp)
+        print('$', self.full_path_tmp)
         if self.photo.orientation == 8:
             transform = QTransform().rotate(270)
             pixmap = pixmap.transformed(transform)
         pixmap = pixmap.scaled(PIXMAP_SCALE, Qt.AspectRatioMode.KeepAspectRatio)
         label.setPixmap(pixmap)
 
-        self.btn = QPushButton("Masquer")
-        # self.btn.value = self.photo.original_name[-4:]
+        self.btn = QPushButton('')
+        if self.full_path_tmp.find(BLURRED) == -1:
+            self.btn.setStyleSheet('background-color: #6e6')
+            self.btn.setText('Masquer')
+        else:
+            self.btn.setStyleSheet('background-color: #e66')
+            self.btn.setText('Afficher')
         self.btn.setCheckable(True)
-        self.btn.setStyleSheet('background-color: #6e6')
         self.btn.setFixedSize(pixmap.width(), 25)
         self.btn.clicked.connect(self.masquer)
 
         groupbox.setFixedHeight(pixmap.height()+self.btn.height()+45)
-        groupbox.setFixedWidth(1.2*pixmap.width())
+        groupbox.setFixedWidth(int(1.2*pixmap.width()))
         
         vbox.addWidget(label)
         vbox.addWidget(self.btn)
@@ -131,9 +128,9 @@ class Thumbnails(QWidget):
         vbox.addStretch()
 #--------------------------------------------------------------------------------
     def blur_image(self):
-        full_blurred_path = self.full_path_tmp[:-5] + BLURRED + self.full_path_tmp[-5:]
-        if Path(full_blurred_path).exists():
+        if not self.full_path_tmp.find(BLURRED) == -1:
             return
+        full_blurred_path = self.full_path_tmp[:-5] + BLURRED + self.full_path_tmp[-5:]
         img = Image.open(self.full_path_tmp)
         img_blur = img.filter(ImageFilter.GaussianBlur(80))
         img_blur.save(full_blurred_path)        
@@ -141,6 +138,8 @@ class Thumbnails(QWidget):
     @Slot(result=str)
     def masquer(self):
         sig = self.photo.original_name[:]
+        #----- sans doute à enlever
+        print('masquer')
         if self.btn.isChecked():
             self.btn.setText('Afficher')
             self.btn.setStyleSheet('background-color: #e66')
@@ -148,5 +147,6 @@ class Thumbnails(QWidget):
         else:
             self.btn.setText('Masquer')
             self.btn.setStyleSheet('background-color: #6e6')
+        #------ jusque là
         self.changed.emit(sig)
 #################################################################################
