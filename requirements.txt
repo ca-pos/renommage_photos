@@ -1,7 +1,7 @@
 Package            Version
 ------------------ -------
 imageio            2.33.1
-numpy              1.26.3
+numpy              1.26.4
 pillow             10.2.0
 pip                22.0.2
 py3exiv2           0.12.0
