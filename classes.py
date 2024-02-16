@@ -1,8 +1,9 @@
 from pathlib import Path
 
 import pyexiv2
+import random
 
-from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QGroupBox, QLabel, QPushButton, QHBoxLayout, QScrollArea
+from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QGroupBox, QLabel, QPushButton, QHBoxLayout, QScrollArea, QCheckBox
 from PySide6.QtGui import QPixmap, QTransform, QPalette, QBrush
 from PySide6.QtCore import Qt, Signal, Slot
 from PIL import Image, ImageFilter
@@ -86,18 +87,32 @@ class Gallery(QWidget):
         layout.addStretch()
         self.setLayout(layout)
 
+        bg_color = self.new_color()
         for i in range(len(fichier_raw)):
-            if i > 3:       # only for development with short photo list
-                continue
+            # only for development with short photo list
+            if i > 3:       
+               continue
             photo_file = fichier_raw[i]
             blur = ''
             for j in range(len(Gallery.hidden_list)):
                 if photo_file.find(Gallery.hidden_list[j]) != -1:
                     blur = BLURRED
             th = Thumbnails(photo_file, blur)
-            th.setStyleSheet('background-color: #ee6')  # background jaune
+            exif = PhotoExif(photo_file)
+            if i == 0:
+                old_date = exif.date
+            if not old_date == exif.date:
+                bg_color = self.new_color()
+                old_date = exif.date
+            th.setStyleSheet(f'background-color: {bg_color}')  # random bg color 
             th.changed.connect(self.refresh_blur_list)
             layout.addWidget(th)
+#--------------------------------------------------------------------------------    
+    def new_color(self):
+        red = random.randint(0, 255)
+        green = random.randint(0, 255)
+        blue = random.randint(0, 255)
+        return '#%02x%02x%02x' % (red, green, blue)
 #--------------------------------------------------------------------------------    
     @Slot(result=str)
     def refresh_blur_list(self, e):
@@ -125,6 +140,7 @@ class Thumbnails(QWidget):
 
         Args:
             photo: str
+                path to RAW file
             blur: str
                 whether or not the displayed JPEG should be blurred: clear = empty string, blurred = BLURRED constant
         """
@@ -132,14 +148,10 @@ class Thumbnails(QWidget):
         self.photo = PhotoExif(photo)
         self.full_path_tmp = TMP_DIR + self.photo.original_name + blur + '.jpeg'
 
-        layout  = QGridLayout()
-        self.setLayout(layout)
-        groupbox = QGroupBox(self.photo.original_name)
-        layout.addWidget(groupbox)
-        vbox = QVBoxLayout()
-        groupbox.setLayout(vbox)
+        thumbnail_title = self.photo.original_name + ' ('  + self.photo.date.replace(' ', '/') + ')'
 
         label = QLabel(self)
+        label.setStyleSheet('margin: 0px 0px 5px 0px')
         pixmap = QPixmap(self.full_path_tmp)
         if self.photo.orientation == 'portrait':
             transform = QTransform().rotate(270)
@@ -147,7 +159,7 @@ class Thumbnails(QWidget):
         pixmap = pixmap.scaled(PIXMAP_SCALE, Qt.AspectRatioMode.KeepAspectRatio)
         label.setPixmap(pixmap)
 
-        # creates the show (afficher) / hide (masquer) button
+        # create the show/hide button (afficher/masquer)
         self.btn = QPushButton('')
         if self.full_path_tmp.find(BLURRED) == -1:
             self.btn.setStyleSheet('background-color: #6e6')
@@ -156,14 +168,36 @@ class Thumbnails(QWidget):
             self.btn.setStyleSheet('background-color: #e66')
             self.btn.setText('Afficher')
         self.btn.setCheckable(True)
-        self.btn.setFixedSize(pixmap.width(), 25)
+        self.btn.setFixedSize(BUTTON_H_SIZE, BUTTON_V_SIZE)
         self.btn.clicked.connect(self.masquer)
 
+        # create a checkbox to select thumbnails
+        self.select = QCheckBox()
+        self.select.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
+        self.select.setStyleSheet("QCheckBox::indicator"
+                               "{"
+                               "width :15px;"
+                               "height : 15px;"
+                               "background-color: #ccc;"
+                               "border: 1px solid;"
+                               "margin: 5px"
+                               "}")
+
+        layout  = QGridLayout()
+        self.setLayout(layout)
+
+        groupbox = QGroupBox(thumbnail_title)
         groupbox.setFixedHeight(pixmap.height()+self.btn.height()+45)
-        groupbox.setFixedWidth(int(1.2*pixmap.width()))
-        
+        groupbox.setFixedWidth(int(1*pixmap.width()))
+        layout.addWidget(groupbox)
+
+        vbox = QVBoxLayout()
+        hbox = QHBoxLayout()
+        groupbox.setLayout(vbox)
         vbox.addWidget(label)
-        vbox.addWidget(self.btn)
+        hbox.addWidget(self.btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        hbox.addWidget(self.select, alignment=Qt.AlignmentFlag.AlignRight)
+        vbox.addLayout(hbox)
         vbox.setSpacing(0)
         vbox.addStretch()
 #--------------------------------------------------------------------------------
@@ -175,6 +209,8 @@ class Thumbnails(QWidget):
         if not self.full_path_tmp.find(BLURRED) == -1:
             return
         full_blurred_path = self.full_path_tmp[:-5] + BLURRED + self.full_path_tmp[-5:]
+        if Path(full_blurred_path).exists():
+            return
         img = Image.open(self.full_path_tmp)
         img_blur = img.filter(ImageFilter.GaussianBlur(80))
         img_blur.save(full_blurred_path)        

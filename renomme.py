@@ -1,6 +1,6 @@
-from genericpath import exists
 import sys, os
 import shutil
+from typing import Literal
 
 import rawpy
 
@@ -29,7 +29,7 @@ class MainWindow(QMainWindow):
         self.create_thumb_jpeg(photos_test)
         self.refresh_display('')
 #--------------------------------------------------------------------------------
-    def create_thumb_jpeg(self, photos_test: list[str]):
+    def create_thumb_jpeg(self, photos_test: tuple):
         """
         Summary
             create_thumb_jpeg: Creates a temporary directory for JPEG embedded in NEF files
