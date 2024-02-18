@@ -1,3 +1,25 @@
 QMainWindow {
     background-color: "#abc";
 }
+QCheckBox {
+    color: #777;
+}
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border: 1px solid #eee;
+    background-color: #bbb;
+}
+QCheckBox::indicator:checked
+{
+    image: url(./icons/_active__yes.png);
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    background-color: #333;
+    color: #eee;
+    border-radius: 7px;
+    padding: 2px;
+    margin: 5px 0px 0px 12px;
+}

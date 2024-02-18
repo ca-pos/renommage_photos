@@ -2,10 +2,11 @@ from pathlib import Path
 
 import pyexiv2
 import random
+from functools import partial
 
 from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QGroupBox, QLabel, QPushButton, QHBoxLayout, QScrollArea, QCheckBox
-from PySide6.QtGui import QPixmap, QTransform, QPalette, QBrush
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtGui import QPixmap, QTransform, QPalette
+from PySide6.QtCore import Qt, Signal, Slot, QObject, QEvent
 from PIL import Image, ImageFilter
 
 from constants import *
@@ -82,10 +83,10 @@ class Gallery(QWidget):
         fichier_raw = [str(fichier) for fichier in Path('./pictures').glob('*.NEF')]
         fichier_raw = sorted(fichier_raw)
 
-        layout = QHBoxLayout()
-        layout.setSpacing(0)
-        layout.addStretch()
-        self.setLayout(layout)
+        self.layout = QHBoxLayout()
+        self.layout.setSpacing(0)
+        self.layout.addStretch()
+        self.setLayout(self.layout)
 
         bg_color = self.new_color()
         for i in range(len(fichier_raw)):
@@ -97,8 +98,8 @@ class Gallery(QWidget):
             for j in range(len(Gallery.hidden_list)):
                 if photo_file.find(Gallery.hidden_list[j]) != -1:
                     blur = BLURRED
-            th = Thumbnails(photo_file, blur)
-            exif = PhotoExif(photo_file)
+            th = Thumbnails(photo_file, blur, i)
+            exif = th.exif
             if i == 0:
                 old_date = exif.date
             if not old_date == exif.date:
@@ -106,7 +107,8 @@ class Gallery(QWidget):
                 old_date = exif.date
             th.setStyleSheet(f'background-color: {bg_color}')  # random bg color 
             th.changed.connect(self.refresh_blur_list)
-            layout.addWidget(th)
+            th.selected.connect(partial(self.thumb_select, th.id+1))
+            self.layout.addWidget(th)
 #--------------------------------------------------------------------------------    
     def new_color(self):
         red = random.randint(0, 255)
@@ -114,7 +116,12 @@ class Gallery(QWidget):
         blue = random.randint(0, 255)
         return '#%02x%02x%02x' % (red, green, blue)
 #--------------------------------------------------------------------------------    
-    @Slot(result=str)
+    def thumb_select(self, e, s):
+        if s == 'Control':
+            bg_color = self.new_color()
+            self.layout.itemAt(e).widget().setStyleSheet(f'background-color: {bg_color}')
+            Thumbnails.modifier = Qt.KeyboardModifier.NoModifier
+#--------------------------------------------------------------------------------    
     def refresh_blur_list(self, e):
         try:
             index = Gallery.hidden_list.index(e)
@@ -125,7 +132,12 @@ class Gallery(QWidget):
 #################################################################################
 class Thumbnails(QWidget):
     """
-    Thumbnails Thumbnails object comprised a title (original name of the image from exif data), JPEG embedded in the RAW file, and a Show (Afficher) / Hide (Masquer) checkable pushbutton. JPEG of hidden thumbnails are blurred
+    Thumbnails summary: Thumbnails object comprised 
+        - a title (original name of the image from exif data), 
+        - the JPEG embedded in the RAW file,
+        - a Show (Afficher) / Hide (Masquer) checkable pushbutton,
+        - a checkbox for thumbnail selection.
+    JPEG of hidden thumbnails are blurred.
 
     Args:
         QWidget: QWidget
@@ -134,7 +146,10 @@ class Thumbnails(QWidget):
         When status is changed (hidden/shown) a changed signal is emitted which contains the the exif original name (stem)
     """
     changed = Signal(str)
-    def __init__(self, photo: str, blur: str):
+    selected = Signal(str)
+    modifier = Qt.KeyboardModifier.NoModifier
+
+    def __init__(self, photo: str, blur: str, id: int):
         """
         __init__ creates Thumbnails objects
 
@@ -145,15 +160,16 @@ class Thumbnails(QWidget):
                 whether or not the displayed JPEG should be blurred: clear = empty string, blurred = BLURRED constant
         """
         super().__init__()
-        self.photo = PhotoExif(photo)
-        self.full_path_tmp = TMP_DIR + self.photo.original_name + blur + '.jpeg'
+        self.exif = PhotoExif(photo)
+        self.id = id
+        self.full_path_tmp = TMP_DIR + self.exif.original_name + blur + '.jpeg'
 
-        thumbnail_title = self.photo.original_name + ' ('  + self.photo.date.replace(' ', '/') + ')'
+        thumbnail_title = self.exif.original_name + ' ('  + self.exif.date.replace(' ', '/') + ')'
 
         label = QLabel(self)
         label.setStyleSheet('margin: 0px 0px 5px 0px')
         pixmap = QPixmap(self.full_path_tmp)
-        if self.photo.orientation == 'portrait':
+        if self.exif.orientation == 'portrait':
             transform = QTransform().rotate(270)
             pixmap = pixmap.transformed(transform)
         pixmap = pixmap.scaled(PIXMAP_SCALE, Qt.AspectRatioMode.KeepAspectRatio)
@@ -174,21 +190,14 @@ class Thumbnails(QWidget):
         # create a checkbox to select thumbnails
         self.select = QCheckBox()
         self.select.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
-        self.select.setStyleSheet("QCheckBox::indicator"
-                               "{"
-                               "width :15px;"
-                               "height : 15px;"
-                               "background-color: #ccc;"
-                               "border: 1px solid;"
-                               "margin: 5px"
-                               "}")
+        self.select.stateChanged.connect(self.selection)
 
         layout  = QGridLayout()
         self.setLayout(layout)
 
         groupbox = QGroupBox(thumbnail_title)
         groupbox.setFixedHeight(pixmap.height()+self.btn.height()+45)
-        groupbox.setFixedWidth(int(1*pixmap.width()))
+        groupbox.setFixedWidth(int(1.0*pixmap.width()))
         layout.addWidget(groupbox)
 
         vbox = QVBoxLayout()
@@ -216,9 +225,23 @@ class Thumbnails(QWidget):
         img_blur.save(full_blurred_path)        
 #--------------------------------------------------------------------------------
     @Slot(result=str)
-    def masquer(self):
+    def selection(self, e):
+        # extract modifier itself: No, Control, Shift, Alt
+        sig = str(Thumbnails.modifier).split('.')[1][:-8]
+        self.selected.emit(sig)
+#--------------------------------------------------------------------------------
+    @Slot(result=str)
+    def masquer(self, e):
         sig = self.photo.original_name
         if self.btn.isChecked():
             self.blur_image()
         self.changed.emit(sig) # status (shown/hidden) of a thumbnail has changed
 #################################################################################
+class KeyPressFilter(QObject):
+    def eventFilter(self, widget, event):
+        if event.type() == QEvent.KeyPress:
+            Thumbnails.modifier = event.modifiers()
+            # if event.modifiers():
+            #     text = event.keyCombination().key().name.decode(encoding="utf-8")
+            # widget.label1.setText(text)
+        return False

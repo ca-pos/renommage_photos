@@ -1,5 +1,7 @@
 import sys, os
 import shutil
+# from termios import PARENB
+# from tkinter import NO
 from typing import Literal
 
 import rawpy
@@ -12,8 +14,8 @@ from constants import *
 from classes import *
 #################################################################################
 class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
 
         # seulement pour la mise au point
         # only for the development phase ----------------------------------------
@@ -25,6 +27,9 @@ class MainWindow(QMainWindow):
 
         photos_test = photos_test_short
         # development only ------------------------------------------------------
+
+        self.eventFilter = KeyPressFilter(parent=self)
+        self.installEventFilter(self.eventFilter)
 
         self.create_thumb_jpeg(photos_test)
         self.refresh_display('')
