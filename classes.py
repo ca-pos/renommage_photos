@@ -5,7 +5,7 @@ import random
 from functools import partial
 
 from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QGroupBox, QLabel, QPushButton, QHBoxLayout, QScrollArea, QCheckBox
-from PySide6.QtGui import QPixmap, QTransform, QPalette
+from PySide6.QtGui import QMouseEvent, QPixmap, QTransform, QPalette, QKeyEvent
 from PySide6.QtCore import Qt, Signal, Slot, QObject, QEvent
 from PIL import Image, ImageFilter
 
@@ -83,6 +83,8 @@ class Gallery(QWidget):
         fichier_raw = [str(fichier) for fichier in Path('./pictures').glob('*.NEF')]
         fichier_raw = sorted(fichier_raw)
 
+        self.first_thumbnail = None
+
         self.layout = QHBoxLayout()
         self.layout.setSpacing(0)
         self.layout.addStretch()
@@ -98,15 +100,15 @@ class Gallery(QWidget):
             for j in range(len(Gallery.hidden_list)):
                 if photo_file.find(Gallery.hidden_list[j]) != -1:
                     blur = BLURRED
-            th = Thumbnails(photo_file, blur, i)
+            th = Thumbnails(photo_file)
             exif = th.exif
             if i == 0:
                 old_date = exif.date
             if not old_date == exif.date:
                 bg_color = self.new_color()
                 old_date = exif.date
-            th.setStyleSheet(f'background-color: {bg_color}')  # random bg color 
-            th.changed.connect(self.refresh_blur_list)
+            th.set_bg_color(bg_color)
+            # th.changed.connect(self.refresh_blur_list)
             th.selected.connect(partial(self.thumb_select, th.id+1))
             self.layout.addWidget(th)
 #--------------------------------------------------------------------------------    
@@ -116,11 +118,18 @@ class Gallery(QWidget):
         blue = random.randint(0, 255)
         return '#%02x%02x%02x' % (red, green, blue)
 #--------------------------------------------------------------------------------    
-    def thumb_select(self, e, s):
-        if s == 'Control':
+    def thumb_select(self, id, modifier):
+        w = self.layout.itemAt(id).widget()
+        if modifier == 'Alt':
             bg_color = self.new_color()
-            self.layout.itemAt(e).widget().setStyleSheet(f'background-color: {bg_color}')
-            Thumbnails.modifier = Qt.KeyboardModifier.NoModifier
+            w.setStyleSheet(f'background-color: {bg_color}')
+        elif modifier == 'Shift':
+            print(modifier)
+        elif modifier == 'Control':
+            print(modifier)
+        else:
+            print(modifier)
+        Thumbnails.modifier = Qt.KeyboardModifier.NoModifier
 #--------------------------------------------------------------------------------    
     def refresh_blur_list(self, e):
         try:
@@ -145,11 +154,12 @@ class Thumbnails(QWidget):
     Signals:
         When status is changed (hidden/shown) a changed signal is emitted which contains the the exif original name (stem)
     """
-    changed = Signal(str)
+    # changed = Signal(str)
     selected = Signal(str)
     modifier = Qt.KeyboardModifier.NoModifier
+    id: int = 0
 
-    def __init__(self, photo: str, blur: str, id: int):
+    def __init__(self, photo: str):
         """
         __init__ creates Thumbnails objects
 
@@ -158,34 +168,49 @@ class Thumbnails(QWidget):
                 path to RAW file
             blur: str
                 whether or not the displayed JPEG should be blurred: clear = empty string, blurred = BLURRED constant
+            id: int
+                id number
+
+        Attributes:
+            id: int
+                id number
+            exif: <classes.PhotoExif>
+                exif data (of the original RAW file) needed for the present program
+            bg_color: int
+                background color of the Thumbnails
+
+        Methods:
+            set_bg_color(color: str)
+                set background color to "color"
         """
         super().__init__()
         self.exif = PhotoExif(photo)
-        self.id = id
-        self.full_path_tmp = TMP_DIR + self.exif.original_name + blur + '.jpeg'
+        self.bg_color = ''
+        self.id = Thumbnails.id
+        self._full_path_tmp = TMP_DIR + self.exif.original_name + '.jpeg'
+        self._full_path_tmp_blurred = TMP_DIR + self.exif.original_name + BLURRED + '.jpeg'
+        self.blurred = False
 
-        thumbnail_title = self.exif.original_name + ' ('  + self.exif.date.replace(' ', '/') + ')'
+        Thumbnails.id += 1 
 
-        label = QLabel(self)
-        label.setStyleSheet('margin: 0px 0px 5px 0px')
-        pixmap = QPixmap(self.full_path_tmp)
-        if self.exif.orientation == 'portrait':
-            transform = QTransform().rotate(270)
-            pixmap = pixmap.transformed(transform)
-        pixmap = pixmap.scaled(PIXMAP_SCALE, Qt.AspectRatioMode.KeepAspectRatio)
-        label.setPixmap(pixmap)
+        thumbnail_title = self.exif.original_name + '  ('  + self.exif.date.replace(' ', '/') + ')'
+
+        self._label = QLabel(self)
+        self._label.setStyleSheet('margin: 0px 0px 5px 0px')
+        self.set_pixmap(self._full_path_tmp)
 
         # create the show/hide button (afficher/masquer)
         self.btn = QPushButton('')
-        if self.full_path_tmp.find(BLURRED) == -1:
-            self.btn.setStyleSheet('background-color: #6e6')
-            self.btn.setText('Masquer')
-        else:
-            self.btn.setStyleSheet('background-color: #e66')
-            self.btn.setText('Afficher')
+        self.update_button(False)
+        # if self._full_path_tmp.find(BLURRED) == -1:
+        #     self.btn.setStyleSheet('background-color: #6e6')
+        #     self.btn.setText('Masquer')
+        # else:
+        #     self.btn.setStyleSheet('background-color: #e66')
+        #     self.btn.setText('Afficher')
         self.btn.setCheckable(True)
         self.btn.setFixedSize(BUTTON_H_SIZE, BUTTON_V_SIZE)
-        self.btn.clicked.connect(self.masquer)
+        self.btn.clicked.connect(self.hide)
 
         # create a checkbox to select thumbnails
         self.select = QCheckBox()
@@ -196,52 +221,81 @@ class Thumbnails(QWidget):
         self.setLayout(layout)
 
         groupbox = QGroupBox(thumbnail_title)
-        groupbox.setFixedHeight(pixmap.height()+self.btn.height()+45)
-        groupbox.setFixedWidth(int(1.0*pixmap.width()))
+        groupbox.setFixedHeight(self._pixmap.height()+self.btn.height()+45)
+        groupbox.setFixedWidth(int(1.0*self._pixmap.width()))
         layout.addWidget(groupbox)
 
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
         groupbox.setLayout(vbox)
-        vbox.addWidget(label)
+        vbox.addWidget(self._label)
         hbox.addWidget(self.btn, alignment=Qt.AlignmentFlag.AlignLeft)
         hbox.addWidget(self.select, alignment=Qt.AlignmentFlag.AlignRight)
         vbox.addLayout(hbox)
         vbox.setSpacing(0)
         vbox.addStretch()
 #--------------------------------------------------------------------------------
-    def blur_image(self):
+    def blur_pixmap(self):
+        if not Path(self._full_path_tmp_blurred).exists():
+            img = Image.open(self._full_path_tmp)
+            img = img.filter(ImageFilter.GaussianBlur(80))
+            img.save(self._full_path_tmp_blurred)
+        self.set_pixmap(self._full_path_tmp_blurred)
+        self.blurred = True
+#--------------------------------------------------------------------------------
+    def set_bg_color(self, color: str):
         """
-        blur_image blur jpeg image: hidden images are shown blurred (not to be transferred to disk)
+        set_bg_color set background color
+
+        Args:
+            color (str): color of the background
         """
-        # if blurred image exists, don't create it again
-        if not self.full_path_tmp.find(BLURRED) == -1:
-            return
-        full_blurred_path = self.full_path_tmp[:-5] + BLURRED + self.full_path_tmp[-5:]
-        if Path(full_blurred_path).exists():
-            return
-        img = Image.open(self.full_path_tmp)
-        img_blur = img.filter(ImageFilter.GaussianBlur(80))
-        img_blur.save(full_blurred_path)        
+        self.setStyleSheet(f'background-color: {color}')
+#--------------------------------------------------------------------------------
+    def set_pixmap(self, pixmap_path):
+        self._pixmap = QPixmap(pixmap_path)
+        if self.exif.orientation == 'portrait':
+            transform = QTransform().rotate(270)
+            self._pixmap = self._pixmap.transformed(transform)
+        self._pixmap = self._pixmap.scaled(PIXMAP_SCALE, Qt.AspectRatioMode.KeepAspectRatio)
+        self._label.setPixmap(self._pixmap)
+#--------------------------------------------------------------------------------
+    def update_button(self, blur: bool):
+        if not blur:
+            self.btn.setStyleSheet('background-color: #6e6')
+            self.btn.setText('Masquer')
+        else:
+            self.btn.setStyleSheet('background-color: #e66')
+            self.btn.setText('Afficher')
 #--------------------------------------------------------------------------------
     @Slot(result=str)
-    def selection(self, e):
+    def selection(self):
         # extract modifier itself: No, Control, Shift, Alt
         sig = str(Thumbnails.modifier).split('.')[1][:-8]
         self.selected.emit(sig)
 #--------------------------------------------------------------------------------
     @Slot(result=str)
-    def masquer(self, e):
-        sig = self.photo.original_name
+    def hide(self):
         if self.btn.isChecked():
-            self.blur_image()
-        self.changed.emit(sig) # status (shown/hidden) of a thumbnail has changed
+            self.blur_pixmap()
+            self.update_button(True)
+        else:
+            self.set_pixmap(self._full_path_tmp)
+            self.update_button(False)
 #################################################################################
 class KeyPressFilter(QObject):
     def eventFilter(self, widget, event):
-        if event.type() == QEvent.KeyPress:
+        if event.type() == QKeyEvent.KeyPress:
             Thumbnails.modifier = event.modifiers()
-            # if event.modifiers():
-            #     text = event.keyCombination().key().name.decode(encoding="utf-8")
-            # widget.label1.setText(text)
+        elif event.type() == QKeyEvent.KeyRelease:
+            Thumbnails.modifier = Qt.KeyboardModifier.NoModifier
         return False
+#################################################################################
+# class CCheckBox(QCheckBox):
+#     def __init__(self):
+#         super().__init__()
+#     def mousePressEvent(self, e: QMouseEvent) -> None:
+#         if e.button() == Qt.LeftButton:
+#             print('left button')
+#         return super().mousePressEvent(e)
+#################################################################################
