@@ -1,8 +1,5 @@
 import sys, os
 import shutil
-# from termios import PARENB
-# from tkinter import NO
-from typing import Literal
 
 import rawpy
 
@@ -11,7 +8,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtCore import QFile, QTextStream, QIODevice
 
 from constants import *
-from classes import *
+from RenameCls import *
 #################################################################################
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
@@ -31,7 +28,8 @@ class MainWindow(QMainWindow):
         self.installEventFilter(self.eventFilter)
 
         self.create_thumb_jpeg(photos_test)
-        self.refresh_display('')
+        self.setUI()
+        self.show_display()
 #--------------------------------------------------------------------------------
     def create_thumb_jpeg(self, photos_test: tuple):
         """
@@ -53,10 +51,6 @@ class MainWindow(QMainWindow):
             with open(full_path_for_thumb, 'wb') as file:
                 file.write(thumb.data)
 #--------------------------------------------------------------------------------
-    def refresh_display(self, e: str):
-        self.setUI()
-        self.show_display()
-#--------------------------------------------------------------------------------
     def setUI(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -68,7 +62,6 @@ class MainWindow(QMainWindow):
         # création du widget gallery (contient des objets Thumbnails)
         # creates widget gallery (contains Thumbnails objects)
         self.gallery = Gallery()
-        self.gallery.changed.connect(self.refresh_display)
         # création de la scrollarea display qui contient gallery
         # creates scrollarea (contains gallery)
         self.display = Display(self.gallery)
@@ -80,7 +73,7 @@ class MainWindow(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     main_window = MainWindow()
-    main_window.setWindowIcon(QIcon('qt.png'))
+    main_window.setWindowIcon(QIcon('./icons/qt.png'))
     main_window.setFixedSize(MAIN_SIZE)
     main_window.setWindowTitle("Renommage des photos")
     
