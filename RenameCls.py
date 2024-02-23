@@ -71,6 +71,7 @@ class PhotoExif():
 class Gallery(QWidget):
     select1 = False
     list_set = False
+    checked_list_fixed = list()
     counter = 0
     """
     Gallery creates a widget that contains Thumbnails object
@@ -90,10 +91,10 @@ class Gallery(QWidget):
         """
         super().__init__()
 
+        self.checked_list_count = -1
+
         fichier_raw = [str(fichier) for fichier in Path('./pictures').glob('*.NEF')]
         fichier_raw = sorted(fichier_raw)
-
-        self.checked_list_count = -1
 
         self.layout = QHBoxLayout()
         self.layout.setSpacing(0)
@@ -133,9 +134,9 @@ class Gallery(QWidget):
             self.w(rank).setStyleSheet(f'background-color: {bg_color}')
             return
 
-        print(self.list_checked())
+        print('--->', self.checked_list())
 
-        length = len(self.list_checked())
+        length = len(self.checked_list())
         # length == 0 -> same button checked and immediatly after unchecked
         # just return in the final program
         if length == 0:
@@ -148,25 +149,38 @@ class Gallery(QWidget):
                 return
             if not Gallery.list_set:
                 Gallery.list_set = True
-                temp_list = self.list_checked()
+                temp_list = self.checked_list()
                 print('On a le second')
                 first = temp_list[0]
                 last = temp_list[1]
                 self.checked_list_count = last - first + 1 if self.checked_list_count == -1     else self.checked_list_count            
                 for i in range(first+1, last):
                     self.w(i).set_checked(True)
+                Gallery.checked_list_fixed = self.checked_list()
+            return
 
-        if Gallery.list_set and len(self.list_checked()) == self.checked_list_count + 1:
-            
+        in_between = (rank >= Gallery.checked_list_fixed[0] and
+                      rank <= Gallery.checked_list_fixed[-1])
+        
+        print('+', in_between, rank, Gallery.checked_list_fixed, Gallery.list_set)
+        if Gallery.list_set and in_between:
+            self.unset_others(rank)
+            return
+        if Gallery.list_set and len(self.checked_list()) == self.checked_list_count + 1:
             print('ON CHANGE LA LISTE')
-            print('list checked', self.list_checked())
-            print('las clicked ', rank)
 
             Gallery.list_set = False
-            for i in range(Thumbnails.count):
-                pass
+            self.unset_others(rank)
 #--------------------------------------------------------------------------------    
-    def list_checked(self):
+    def unset_others(self, rank: int):
+        print('usrk', rank)
+        self.w(rank).set_checked(True)
+        return
+        for i in Gallery.checked_list_fixed:
+            if not i == rank:
+                self.w(i).set_checked(False)
+#--------------------------------------------------------------------------------    
+    def checked_list(self):
         n = list()
         for i in range(1, Thumbnails.count+1):
             if self.w(i).is_selected:
