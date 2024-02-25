@@ -10,6 +10,13 @@ QCheckBox::indicator {
     border: 1px solid #eee;
     background-color: #bbb;
 }
+QCheckBox#colored::indicator {
+    width: 18px;
+    height: 18px;
+    border: 1px groove #bbb;
+    border-radius: 9px;
+    image: url(./icons/color.png);
+}
 QCheckBox::indicator:checked
 {
     image: url(./icons/_active__yes.png);
@@ -20,6 +27,6 @@ QGroupBox::title {
     background-color: #333;
     color: #eee;
     border-radius: 7px;
-    padding: 2px;
+    padding: 2px 5px;
     margin: 5px 0px 0px 12px;
 }

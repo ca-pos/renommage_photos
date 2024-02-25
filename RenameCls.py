@@ -116,8 +116,17 @@ class Gallery(QWidget):
                 old_date = exif.date
             th.set_bg_color(bg_color)
             th.selected.connect(partial(self.thumb_selected, th.rank))
+            th.colored.connect(partial(self.change_group_bg_color, th.exif.date))
             self.layout.addWidget(th)
-#--------------------------------------------------------------------------------    
+#--------------------------------------------------------------------------------
+    def change_group_bg_color(self, date:str, e: bool):
+        bg_color = self.new_color()
+        for i in range(1, Thumbnails.count + 1):
+            if self.w(i).exif.date == date:
+                self.w(i).set_checked(False)
+                self.w(i).set_bg_color(bg_color)
+
+#--------------------------------------------------------------------------------
     def new_color(self):
         red = random.randint(0, 255)
         green = random.randint(0, 255)
@@ -126,13 +135,13 @@ class Gallery(QWidget):
 #--------------------------------------------------------------------------------    
     def thumb_selected(self, rank: int, button_checked: bool):
         Gallery.counter += 1
-        if Gallery.counter > 50:
+        if Gallery.counter > 20:
             print('ÇA BOUCLE')
             exit(1)
-        if str(Thumbnails.modifier).split('.')[1][:-8] == 'Alt':
-            bg_color = self.new_color()
-            self.w(rank).setStyleSheet(f'background-color: {bg_color}')
-            return
+        self._modifier = str(Thumbnails.modifier).split('.')[1][:-8]
+        match self._modifier:
+            case 'Control': # make corrections of the list
+                return
 
         print('--->', self.checked_list())
 
@@ -141,41 +150,54 @@ class Gallery(QWidget):
         # just return in the final program
         if length == 0:
             print('LISTE VIDE')
-            exit()
+            
         if button_checked:
             if not Gallery.select1:
                 print('On a le premier')
                 Gallery.select1 = True
                 return
             if not Gallery.list_set:
-                Gallery.list_set = True
-                temp_list = self.checked_list()
                 print('On a le second')
+                temp_list = self.checked_list()
                 first = temp_list[0]
                 last = temp_list[1]
-                self.checked_list_count = last - first + 1 if self.checked_list_count == -1     else self.checked_list_count            
+                self.checked_list_count = last - first + 1 if self.checked_list_count == -1     else self.checked_list_count  
+                if first+1 == last: # consecutive checked buttons
+                    Gallery.list_set = True
+                    return  # no need to enter the next loop       
                 for i in range(first+1, last):
+                    Gallery.list_set = True
                     self.w(i).set_checked(True)
-                Gallery.checked_list_fixed = self.checked_list()
-            return
+            else:
+                print(rank, self.checked_list())
+                if not self.in_between(self.checked_list()[:-1], rank):
+                    print('ON CHANGE DE LISTE')
 
-        in_between = (rank >= Gallery.checked_list_fixed[0] and
-                      rank <= Gallery.checked_list_fixed[-1])
+        else:   # button_checked == False
+            if not Gallery.list_set: #first btn checked and then unchecked -> reset all
+                Gallery.select1 = False
+                return
+            print('DÉCOCHÉ, list_set', Gallery.list_set)
+            print('lest checked', self.checked_list(), 'rank', rank)
+
+        # print('+', rank, Gallery.checked_list_fixed, Gallery.list_set)
+        # in_between = (rank >= Gallery.checked_list_fixed[0] and
+        #               rank <= Gallery.checked_list_fixed[-1])
         
-        print('+', in_between, rank, Gallery.checked_list_fixed, Gallery.list_set)
-        if Gallery.list_set and in_between:
-            self.unset_others(rank)
-            return
-        if Gallery.list_set and len(self.checked_list()) == self.checked_list_count + 1:
-            print('ON CHANGE LA LISTE')
-
-            Gallery.list_set = False
-            self.unset_others(rank)
-#--------------------------------------------------------------------------------    
+        # if Gallery.list_set and in_between:
+        #     # self.unset_others(rank)
+        #     return
+        # if Gallery.list_set and len(self.checked_list()) == self.checked_list_count + 1:
+        #     print('ON CHANGE LA LISTE')
+        #     Gallery.list_set = False
+        #     self.unset_others(rank)
+#--------------------------------------------------------------------------------
+    def in_between(self, li: list, ind: int):
+        return ind >= li[0] and ind <= li[-1]
+#--------------------------------------------------------------------------------
     def unset_others(self, rank: int):
-        print('usrk', rank)
-        self.w(rank).set_checked(True)
-        return
+        # self.w(rank).set_checked(True)
+                
         for i in Gallery.checked_list_fixed:
             if not i == rank:
                 self.w(i).set_checked(False)
@@ -206,6 +228,7 @@ class Thumbnails(QWidget):
         When status is changed (hidden/shown) a changed signal is emitted which contains the the exif original name (stem)
     """
     selected = Signal(bool)
+    colored = Signal(bool)
     modifier = Qt.KeyboardModifier.NoModifier
     count: int = 0
 
@@ -218,6 +241,7 @@ class Thumbnails(QWidget):
                 path to RAW file
             blur: str
                 whether or not the displayed JPEG should be blurred: clear = empty string, blurred = BLURRED constant
+
             id: int
                 id number
 
@@ -243,6 +267,8 @@ class Thumbnails(QWidget):
         self.rank = Thumbnails.count
 
         thumbnail_title = self.exif.original_name + '  ('  + self.exif.date.replace(' ', '/') + ')'
+        reversed_date = '/'.join(list(reversed(self.exif.date.split(' '))))
+        thumbnail_title = self.exif.original_name + '  (' + reversed_date +')'
 
         self._label = QLabel(self)
         self._label.setStyleSheet('margin: 0px 0px 5px 0px')
@@ -255,7 +281,13 @@ class Thumbnails(QWidget):
         self.btn.setFixedSize(BUTTON_H_SIZE, BUTTON_V_SIZE)
         self.btn.clicked.connect(self.hide)
 
-        # create a checkbox to select thumbnails
+        # creates a checkbox to change bg color
+        self.change_bg_color = QCheckBox()
+        self.change_bg_color.setObjectName('colored')
+        self.change_bg_color.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
+        self.change_bg_color.stateChanged.connect(self._change_color)
+
+        # creates a checkbox to select thumbnails
         self.select = QCheckBox()
         self.select.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
         self.select.stateChanged.connect(self._selection)
@@ -270,9 +302,12 @@ class Thumbnails(QWidget):
 
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
+        hbox.setSpacing(0)
         groupbox.setLayout(vbox)
         vbox.addWidget(self._label)
         hbox.addWidget(self.btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        hbox.addStretch()
+        hbox.addWidget(self.change_bg_color, alignment=Qt.AlignmentFlag.AlignRight)
         hbox.addWidget(self.select, alignment=Qt.AlignmentFlag.AlignRight)
         vbox.addLayout(hbox)
         vbox.setSpacing(0)
@@ -296,6 +331,7 @@ class Thumbnails(QWidget):
             color (str): color of the background
         """
         self.setStyleSheet(f'background-color: {color}')
+        self.bg_color = color
 #--------------------------------------------------------------------------------
     def set_pixmap(self, pixmap_path: str):
         self._pixmap = QPixmap(pixmap_path)
@@ -319,6 +355,10 @@ class Thumbnails(QWidget):
         set = True if e else False
         self.is_selected = set
         self.selected.emit(set)
+#--------------------------------------------------------------------------------
+    @Slot(result=bool)
+    def _change_color(self, e: int):
+        self.colored.emit(True)
 #--------------------------------------------------------------------------------
     @Slot(result=str)
     def hide(self):
