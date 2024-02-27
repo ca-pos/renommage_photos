@@ -69,9 +69,9 @@ class PhotoExif():
             self.nikon_file_number = -1
 #################################################################################
 class Gallery(QWidget):
-    select1 = False
-    list_set = False
-    checked_list_fixed = list()
+    # select1 = False
+    # list_set = False
+    # checked_list_fixed = list()
     counter = 0
     """
     Gallery creates a widget that contains Thumbnails object
@@ -90,12 +90,19 @@ class Gallery(QWidget):
         __init__ creates Gallery objects
         """
         super().__init__()
-
-        self.checked_list_count = -1
-
+        # development only ---------------------------------------------------------
         fichier_raw = [str(fichier) for fichier in Path('./pictures').glob('*.NEF')]
         fichier_raw = sorted(fichier_raw)
-
+        #----------------------------------------------------------------------------
+        # self.checked_list_count = -1
+        self.checked_list_fixed = list()
+        self.list_set = False
+        self.first = -1
+        self.last = self.first
+        self.nb_checked = 0
+        self.unset_counter = 0
+        self.list_unset = list()
+        
         self.layout = QHBoxLayout()
         self.layout.setSpacing(0)
         self.layout.addStretch()
@@ -115,6 +122,7 @@ class Gallery(QWidget):
                 bg_color = self.new_color()
                 old_date = exif.date
             th.set_bg_color(bg_color)
+
             th.selected.connect(partial(self.thumb_selected, th.rank))
             th.colored.connect(partial(self.change_group_bg_color, th.exif.date))
             self.layout.addWidget(th)
@@ -152,55 +160,63 @@ class Gallery(QWidget):
             print('LISTE VIDE')
             
         if button_checked:
-            if not Gallery.select1:
-                print('On a le premier')
-                Gallery.select1 = True
+            if self.first == -1:
+                print('On a le premier :', end=' ')
+                print(rank)
+                self.first = rank
                 return
-            if not Gallery.list_set:
-                print('On a le second')
-                temp_list = self.checked_list()
-                first = temp_list[0]
-                last = temp_list[1]
-                self.checked_list_count = last - first + 1 if self.checked_list_count == -1     else self.checked_list_count  
-                if first+1 == last: # consecutive checked buttons
-                    Gallery.list_set = True
-                    return  # no need to enter the next loop       
-                for i in range(first+1, last):
-                    Gallery.list_set = True
+            if not self.list_set:
+                print('On a le second :', end=' ')
+                print(rank)
+                tmp = self.first
+                self.first = min(rank, tmp)
+                self.last = max(rank, tmp)
+                self.nb_checked = self.last - self.first + 1
+                for i in range(self.first, self.last+1):
+                    self.checked_list_fixed.append(i)
+                if self.first+1 == self.last:   # consecutive checked buttons
+                    self.list_set = True
+                    return                      # no need to enter the next loop       
+                for i in range(self.first+1, self.last):
+                    self.list_set = True
                     self.w(i).set_checked(True)
             else:
-                print(rank, self.checked_list())
-                if not self.in_between(self.checked_list()[:-1], rank):
+                if not self.in_between(self.checked_list_fixed, rank):
                     print('ON CHANGE DE LISTE')
+                    # self.unset_others()
+                    print('---',self.checked_list_fixed)
+                    for i in self.checked_list_fixed:
+                        self.w(i).set_checked(False)
+                        print('unsctr', self.unset_counter, i)
+
 
         else:   # button_checked == False
-            if not Gallery.list_set: #first btn checked and then unchecked -> reset all
-                Gallery.select1 = False
+            if not self.list_set: #first btn checked and then unchecked -> reset all
+                self.first = -1
                 return
-            print('DÉCOCHÉ, list_set', Gallery.list_set)
-            print('lest checked', self.checked_list(), 'rank', rank)
-
-        # print('+', rank, Gallery.checked_list_fixed, Gallery.list_set)
-        # in_between = (rank >= Gallery.checked_list_fixed[0] and
-        #               rank <= Gallery.checked_list_fixed[-1])
-        
-        # if Gallery.list_set and in_between:
-        #     # self.unset_others(rank)
-        #     return
-        # if Gallery.list_set and len(self.checked_list()) == self.checked_list_count + 1:
-        #     print('ON CHANGE LA LISTE')
-        #     Gallery.list_set = False
-        #     self.unset_others(rank)
+            print('DÉCOCHÉ, list_set', self.list_set)
+            # self.unset_others()
+            print('---',self.checked_list_fixed)
+            for i in self.checked_list_fixed:
+                self.w(i).set_checked(False)
+                print('unsctr', self.unset_counter, i)
+            print('ZZZ')
+            self.unset_counter += 1
+            print('*', rank, 'ust_count', self.unset_counter, 'lenfix', len(self.checked_list_fixed))
+            self.list_unset.append(rank)
+            if self.unset_counter == len(self.checked_list_fixed):
+                k = self.list_unset[-1]
+                print('k', k)
+                self.w(k).set_checked(True)
 #--------------------------------------------------------------------------------
     def in_between(self, li: list, ind: int):
         return ind >= li[0] and ind <= li[-1]
 #--------------------------------------------------------------------------------
-    def unset_others(self, rank: int):
-        # self.w(rank).set_checked(True)
-                
-        for i in Gallery.checked_list_fixed:
-            if not i == rank:
-                self.w(i).set_checked(False)
+    # def unset_others(self):
+    #     print('---',self.checked_list_fixed)
+    #     for i in self.checked_list_fixed:
+    #         self.w(i).set_checked(False)
+    #         print('unsctr', self.unset_counter, i)
 #--------------------------------------------------------------------------------    
     def checked_list(self):
         n = list()
