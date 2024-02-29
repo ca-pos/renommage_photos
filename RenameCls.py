@@ -9,7 +9,7 @@ from functools import partial
 
 from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QGroupBox, QLabel, QPushButton, QHBoxLayout, QScrollArea, QCheckBox
 from PySide6.QtGui import QPixmap, QTransform, QPalette, QKeyEvent, QIcon
-from PySide6.QtCore import Qt, Signal, Slot, QObject, QEvent
+from PySide6.QtCore import Qt, Signal, Slot, QObject, QSize
 from PIL import Image, ImageFilter
 
 from constants import *
@@ -95,12 +95,15 @@ class Gallery(QWidget):
         fichier_raw = sorted(fichier_raw)
         #----------------------------------------------------------------------------
         # self.checked_list_count = -1
-        self.checked_list_fixed = list()
-        self.list_set = False
         self.first = -1
         self.last = self.first
+        self.list_set = False
         self.nb_checked = 0
+        self.checked_list = list()
+
+        self.checked_list_fixed = list()
         self.unset_counter = 0
+        self.new_list = False
         self.list_unset = list()
         
         self.layout = QHBoxLayout()
@@ -127,11 +130,11 @@ class Gallery(QWidget):
             th.colored.connect(partial(self.change_group_bg_color, th.exif.date))
             self.layout.addWidget(th)
 #--------------------------------------------------------------------------------
-    def change_group_bg_color(self, date:str, e: bool):
+    def change_group_bg_color(self, date:str, e: str):
         bg_color = self.new_color()
         for i in range(1, Thumbnails.count + 1):
             if self.w(i).exif.date == date:
-                self.w(i).set_checked(False)
+                # self.w(i).set_checked(False)
                 self.w(i).set_bg_color(bg_color)
 
 #--------------------------------------------------------------------------------
@@ -151,77 +154,61 @@ class Gallery(QWidget):
             case 'Control': # make corrections of the list
                 return
 
-        print('--->', self.checked_list())
+        print('--->', self.get_checked_list(), end='    ')
+        print('bchk', button_checked)
 
-        length = len(self.checked_list())
+        length = len(self.get_checked_list())
         # length == 0 -> same button checked and immediatly after unchecked
         # just return in the final program
         if length == 0:
             print('LISTE VIDE')
-            
-        if button_checked:
-            if self.first == -1:
-                print('On a le premier :', end=' ')
-                print(rank)
-                self.first = rank
-                return
-            if not self.list_set:
-                print('On a le second :', end=' ')
-                print(rank)
-                tmp = self.first
-                self.first = min(rank, tmp)
-                self.last = max(rank, tmp)
-                self.nb_checked = self.last - self.first + 1
-                for i in range(self.first, self.last+1):
-                    self.checked_list_fixed.append(i)
-                if self.first+1 == self.last:   # consecutive checked buttons
-                    self.list_set = True
-                    return                      # no need to enter the next loop       
-                for i in range(self.first+1, self.last):
-                    self.list_set = True
-                    self.w(i).set_checked(True)
-            else:
-                if not self.in_between(self.checked_list_fixed, rank):
-                    print('ON CHANGE DE LISTE')
-                    # self.unset_others()
-                    print('---',self.checked_list_fixed)
-                    for i in self.checked_list_fixed:
-                        self.w(i).set_checked(False)
-                        print('unsctr', self.unset_counter, i)
-
-
-        else:   # button_checked == False
-            if not self.list_set: #first btn checked and then unchecked -> reset all
-                self.first = -1
-                return
-            print('DÉCOCHÉ, list_set', self.list_set)
-            # self.unset_others()
-            print('---',self.checked_list_fixed)
-            for i in self.checked_list_fixed:
-                self.w(i).set_checked(False)
-                print('unsctr', self.unset_counter, i)
-            print('ZZZ')
-            self.unset_counter += 1
-            print('*', rank, 'ust_count', self.unset_counter, 'lenfix', len(self.checked_list_fixed))
-            self.list_unset.append(rank)
-            if self.unset_counter == len(self.checked_list_fixed):
-                k = self.list_unset[-1]
-                print('k', k)
-                self.w(k).set_checked(True)
+        if self.first == -1:
+            print('On a le premier :', end=' ')
+            print(rank)
+            self.first = rank
+            self.w(rank).set_selection(True)
+            # self.checked_list = self.add_to_list(rank)
+            return
+        if not self.list_set:
+            print('On a le second :', end=' ')
+            print(rank)
+            tmp = self.first
+            self.first = min(rank, tmp)
+            self.last = max(rank, tmp)
+            self.nb_checked = self.last - self.first + 1
+            self.w(rank).set_selection(True)
+            for i in range(self.first+1, self.last):
+                self.w(i).set_selection(True)
+            print(self.get_checked_list())
+            return
+            for i in range(self.first, self.last+1):
+                self.checked_list_fixed.append(i)
+            if self.first+1 == self.last:   # consecutive checked buttons
+                self.list_set = True
+                return                      # no need to enter the next loop       
+            for i in range(self.first+1, self.last):
+                self.list_set = True
+                self.w(i).set_checked(True)
+        else:
+            if not self.in_between(self.checked_list_fixed, rank):
+                print('ON CHANGE DE LISTE')
+                # self.unset_others()
+                self.new_list = True
+                for i in self.checked_list_fixed:
+                    self.w(i).set_checked(False)
+#--------------------------------------------------------------------------------
+    # def add_to_list(self, rank: int):
+    #     self.checked_list.append(rank)
+    #     self.checked_list.sort()
+    #     print('+', self.checked_list)
 #--------------------------------------------------------------------------------
     def in_between(self, li: list, ind: int):
         return ind >= li[0] and ind <= li[-1]
 #--------------------------------------------------------------------------------
-    # def unset_others(self):
-    #     print('---',self.checked_list_fixed)
-    #     for i in self.checked_list_fixed:
-    #         self.w(i).set_checked(False)
-    #         print('unsctr', self.unset_counter, i)
-#--------------------------------------------------------------------------------    
-    def checked_list(self):
+    def get_checked_list(self):
         n = list()
         for i in range(1, Thumbnails.count+1):
-            if self.w(i).is_selected:
+            if self.w(i).get_selection():
                 n.append(i)
         return n
 #--------------------------------------------------------------------------------    
@@ -244,7 +231,7 @@ class Thumbnails(QWidget):
         When status is changed (hidden/shown) a changed signal is emitted which contains the the exif original name (stem)
     """
     selected = Signal(bool)
-    colored = Signal(bool)
+    colored = Signal(str)
     modifier = Qt.KeyboardModifier.NoModifier
     count: int = 0
 
@@ -292,7 +279,7 @@ class Thumbnails(QWidget):
 
         # create the show/hide button (afficher/masquer)
         self.btn = QPushButton('')
-        self.update_button(False)
+        self.update_hide_button(False)
         self.btn.setCheckable(True)
         self.btn.setFixedSize(BUTTON_H_SIZE, BUTTON_V_SIZE)
         self.btn.clicked.connect(self.hide)
@@ -304,9 +291,12 @@ class Thumbnails(QWidget):
         self.change_bg_color.stateChanged.connect(self._change_color)
 
         # creates a checkbox to select thumbnails
-        self.select = QCheckBox()
+        self.select = QPushButton()# QCheckBox()
         self.select.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
-        self.select.stateChanged.connect(self._selection)
+        self.select.clicked.connect(self._selection)
+        self.select.setStyleSheet('background-color: #bbb')
+        # self.select.setIcon(QIcon('./icons/_active__yes.png'))
+        self.select.setIconSize(QSize(ICON_H_SIZE, ICON_V_SIZE)) # <---
         
         layout  = QGridLayout()
         self.setLayout(layout)
@@ -328,6 +318,16 @@ class Thumbnails(QWidget):
         vbox.addLayout(hbox)
         vbox.setSpacing(0)
         vbox.addStretch()
+#--------------------------------------------------------------------------------
+    def set_selection(self, flag: bool):
+        self.is_selected = flag
+        if flag:
+            self.select.setIcon(QIcon('./icons/_active__yes.png'))
+        else:
+            self.select.setIcon(QIcon(''))
+#--------------------------------------------------------------------------------
+    def get_selection(self):
+        return self.is_selected
 #--------------------------------------------------------------------------------
     def set_checked(self, flag):
         self.select.setChecked(flag)
@@ -357,7 +357,7 @@ class Thumbnails(QWidget):
         self._pixmap = self._pixmap.scaled(PIXMAP_SCALE, Qt.AspectRatioMode.KeepAspectRatio)
         self._label.setPixmap(self._pixmap)
 #--------------------------------------------------------------------------------
-    def update_button(self, blur: bool):
+    def update_hide_button(self, blur: bool):
         if blur:
             self.btn.setStyleSheet('background-color: #e66')
             self.btn.setText('Afficher')
@@ -374,16 +374,16 @@ class Thumbnails(QWidget):
 #--------------------------------------------------------------------------------
     @Slot(result=bool)
     def _change_color(self, e: int):
-        self.colored.emit(True)
+        self.colored.emit('')
 #--------------------------------------------------------------------------------
     @Slot(result=str)
     def hide(self):
         if self.btn.isChecked():
             self.blur_pixmap()
-            self.update_button(True)
+            self.update_hide_button(True)
         else:
             self.set_pixmap(self._full_path_tmp)
-            self.update_button(False)
+            self.update_hide_button(False)
 #################################################################################
 class KeyPressFilter(QObject):
     def eventFilter(self, widget, event):

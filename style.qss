@@ -17,10 +17,13 @@ QCheckBox#colored::indicator {
     border-radius: 9px;
     image: url(./icons/color.png);
 }
-QCheckBox::indicator:checked
+QPushButton{
+    background-color: yellow;
+}
+/* QCheckBox::indicator:checked
 {
     image: url(./icons/_active__yes.png);
-}
+} */
 QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
