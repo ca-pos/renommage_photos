@@ -94,17 +94,17 @@ class Gallery(QWidget):
         fichier_raw = [str(fichier) for fichier in Path('./pictures').glob('*.NEF')]
         fichier_raw = sorted(fichier_raw)
         #----------------------------------------------------------------------------
-        # self.checked_list_count = -1
         self.first = -1
-        self.last = self.first
+        self.last = -1
         self.list_set = False
         self.nb_checked = 0
         self.checked_list = list()
 
-        self.checked_list_fixed = list()
-        self.unset_counter = 0
-        self.new_list = False
-        self.list_unset = list()
+        # self.checked_list_fixed = list()
+        # self.unset_counter = 0
+        # self.new_list = False
+        # self.list_unset = list()
+        # self.checked_list_count = -1
         
         self.layout = QHBoxLayout()
         self.layout.setSpacing(0)
@@ -134,7 +134,6 @@ class Gallery(QWidget):
         bg_color = self.new_color()
         for i in range(1, Thumbnails.count + 1):
             if self.w(i).exif.date == date:
-                # self.w(i).set_checked(False)
                 self.w(i).set_bg_color(bg_color)
 
 #--------------------------------------------------------------------------------
@@ -150,28 +149,33 @@ class Gallery(QWidget):
             print('ÇA BOUCLE')
             exit(1)
         self._modifier = str(Thumbnails.modifier).split('.')[1][:-8]
-        match self._modifier:
-            case 'Control': # make corrections of the list
-                return
+        if self._modifier == 'Control':
+            flag = not self.w(rank).get_selection()
+            print(flag)
+            self.w(rank).set_selection(flag)
+            return
 
-        print('--->', self.get_checked_list(), end='    ')
-        print('bchk', button_checked)
+        print('--->', self.checked_list)
 
-        length = len(self.get_checked_list())
-        # length == 0 -> same button checked and immediatly after unchecked
-        # just return in the final program
+        length = len(self.checked_list)
         if length == 0:
             print('LISTE VIDE')
         if self.first == -1:
             print('On a le premier :', end=' ')
             print(rank)
+            self.add_item_to_list(rank)
             self.first = rank
             self.w(rank).set_selection(True)
-            # self.checked_list = self.add_to_list(rank)
             return
-        if not self.list_set:
+        if self.last == -1:
+            if rank == self.first: # same thumb clicked twice
+                self.w(rank).set_selection(False)
+                self.first = -1
+                self.checked_list.clear()
+                return
             print('On a le second :', end=' ')
             print(rank)
+            self.add_item_to_list(rank)
             tmp = self.first
             self.first = min(rank, tmp)
             self.last = max(rank, tmp)
@@ -179,39 +183,30 @@ class Gallery(QWidget):
             self.w(rank).set_selection(True)
             for i in range(self.first+1, self.last):
                 self.w(i).set_selection(True)
-            print(self.get_checked_list())
+                self.add_item_to_list(i)
             return
-            for i in range(self.first, self.last+1):
-                self.checked_list_fixed.append(i)
-            if self.first+1 == self.last:   # consecutive checked buttons
-                self.list_set = True
-                return                      # no need to enter the next loop       
-            for i in range(self.first+1, self.last):
-                self.list_set = True
-                self.w(i).set_checked(True)
         else:
-            if not self.in_between(self.checked_list_fixed, rank):
-                print('ON CHANGE DE LISTE')
-                # self.unset_others()
-                self.new_list = True
-                for i in self.checked_list_fixed:
-                    self.w(i).set_checked(False)
+            print('ON CHANGE DE LISTE')
+            print('***', self.checked_list)
+            print('***', rank)
+            if rank in self.checked_list:
+                print('INTÉRIEUR')
+            else:
+                print('EXTÉRIEUR')
+            for i in self.checked_list:
+                self.w(i).set_selection(False)
+            self.w(rank).set_selection(True)
+            self.checked_list.clear()
+            self.first = rank
+            self.last = -1
+            self.add_item_to_list(rank)
+            print('111', self.checked_list)
 #--------------------------------------------------------------------------------
-    # def add_to_list(self, rank: int):
-    #     self.checked_list.append(rank)
-    #     self.checked_list.sort()
-    #     print('+', self.checked_list)
+    def add_item_to_list(self, item: int):
+        self.checked_list.append(item)
+        self.checked_list.sort()
+        print('---', self.checked_list)
 #--------------------------------------------------------------------------------
-    def in_between(self, li: list, ind: int):
-        return ind >= li[0] and ind <= li[-1]
-#--------------------------------------------------------------------------------
-    def get_checked_list(self):
-        n = list()
-        for i in range(1, Thumbnails.count+1):
-            if self.w(i).get_selection():
-                n.append(i)
-        return n
-#--------------------------------------------------------------------------------    
     def w(self, rank: int):
         return self.layout.itemAt(rank).widget()
 #################################################################################
@@ -295,9 +290,9 @@ class Thumbnails(QWidget):
         self.select.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
         self.select.clicked.connect(self._selection)
         self.select.setStyleSheet('background-color: #bbb')
-        # self.select.setIcon(QIcon('./icons/_active__yes.png'))
-        self.select.setIconSize(QSize(ICON_H_SIZE, ICON_V_SIZE)) # <---
-        
+        self.select.setIconSize(QSize(ICON_H_SIZE, ICON_V_SIZE))
+        self.set_selection(False)
+
         layout  = QGridLayout()
         self.setLayout(layout)
 
@@ -329,8 +324,8 @@ class Thumbnails(QWidget):
     def get_selection(self):
         return self.is_selected
 #--------------------------------------------------------------------------------
-    def set_checked(self, flag):
-        self.select.setChecked(flag)
+    # def set_checked(self, flag):
+    #     self.select.setChecked(flag)
 #--------------------------------------------------------------------------------
     def blur_pixmap(self):
         if not Path(self._full_path_tmp_blurred).exists():
@@ -368,9 +363,11 @@ class Thumbnails(QWidget):
     @Slot(result=bool)
     def _selection(self, e: int):
         # e: 2 = set, 0 = unset
-        set = True if e else False
-        self.is_selected = set
-        self.selected.emit(set)
+        # flag = not self.get_selection()
+        # self.set_selection(flag)
+        # set = True if e else False
+        # self.is_selected = set
+        self.selected.emit(True)
 #--------------------------------------------------------------------------------
     @Slot(result=bool)
     def _change_color(self, e: int):
