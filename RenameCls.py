@@ -1,6 +1,6 @@
 from pathlib import Path
-from telnetlib import GA
-from tkinter.messagebox import RETRY
+# from telnetlib import GA
+# from tkinter.messagebox import RETRY
 
 import pyexiv2
 import random
@@ -69,10 +69,6 @@ class PhotoExif():
             self.nikon_file_number = -1
 #################################################################################
 class Gallery(QWidget):
-    # select1 = False
-    # list_set = False
-    # checked_list_fixed = list()
-    counter = 0
     """
     Gallery creates a widget that contains Thumbnails object
 
@@ -97,19 +93,12 @@ class Gallery(QWidget):
         self.first = -1
         self.last = -1
         self.list_set = False
-        self.nb_checked = 0
         self.checked_list = list()
-
-        # self.checked_list_fixed = list()
-        # self.unset_counter = 0
-        # self.new_list = False
-        # self.list_unset = list()
-        # self.checked_list_count = -1
         
-        self.layout = QHBoxLayout()
-        self.layout.setSpacing(0)
-        self.layout.addStretch()
-        self.setLayout(self.layout)
+        layout = QHBoxLayout()
+        layout.setSpacing(0)
+        layout.addStretch()
+        self.setLayout(layout)
         
         bg_color = self.new_color()
         for i in range(len(fichier_raw)):
@@ -128,30 +117,26 @@ class Gallery(QWidget):
 
             th.selected.connect(partial(self.thumb_selected, th.rank))
             th.colored.connect(partial(self.change_group_bg_color, th.exif.date))
-            self.layout.addWidget(th)
+            layout.addWidget(th)
 #--------------------------------------------------------------------------------
     def change_group_bg_color(self, date:str, e: str):
         bg_color = self.new_color()
         for i in range(1, Thumbnails.count + 1):
             if self.w(i).exif.date == date:
                 self.w(i).set_bg_color(bg_color)
-
 #--------------------------------------------------------------------------------
     def new_color(self):
         red = random.randint(0, 255)
         green = random.randint(0, 255)
         blue = random.randint(0, 255)
         return '#%02x%02x%02x' % (red, green, blue)
-#--------------------------------------------------------------------------------    
+#--------------------------------------------------------------------------------  
     def thumb_selected(self, rank: int, button_checked: bool):
-        Gallery.counter += 1
-        if Gallery.counter > 20:
-            print('ÇA BOUCLE')
-            exit(1)
         self._modifier = str(Thumbnails.modifier).split('.')[1][:-8]
         if self._modifier == 'Control':
+            if not self.in_list_ok(rank):
+                return
             flag = not self.w(rank).get_selection()
-            print(flag)
             self.w(rank).set_selection(flag)
             return
 
@@ -163,7 +148,7 @@ class Gallery(QWidget):
         if self.first == -1:
             print('On a le premier :', end=' ')
             print(rank)
-            self.add_item_to_list(rank)
+            self.update_checked_list(rank)
             self.first = rank
             self.w(rank).set_selection(True)
             return
@@ -175,20 +160,17 @@ class Gallery(QWidget):
                 return
             print('On a le second :', end=' ')
             print(rank)
-            self.add_item_to_list(rank)
+            self.update_checked_list(rank)
             tmp = self.first
             self.first = min(rank, tmp)
             self.last = max(rank, tmp)
-            self.nb_checked = self.last - self.first + 1
             self.w(rank).set_selection(True)
             for i in range(self.first+1, self.last):
                 self.w(i).set_selection(True)
-                self.add_item_to_list(i)
+                self.update_checked_list(i)
             return
         else:
             print('ON CHANGE DE LISTE')
-            print('***', self.checked_list)
-            print('***', rank)
             if rank in self.checked_list:
                 print('INTÉRIEUR')
             else:
@@ -199,16 +181,46 @@ class Gallery(QWidget):
             self.checked_list.clear()
             self.first = rank
             self.last = -1
-            self.add_item_to_list(rank)
-            print('111', self.checked_list)
+            self.update_checked_list(rank)
 #--------------------------------------------------------------------------------
-    def add_item_to_list(self, item: int):
-        self.checked_list.append(item)
+    def in_list_ok(self, rank):
+        ok = list()
+        ok.append(self.checked_list[0])
+        ok.append(self.checked_list[-1])
+        ok.append(self.checked_list[0]-1)
+        ok.append(self.checked_list[-1]+1)
+        if not rank in ok:
+            print('Il y a un trou')
+            return False
+        if rank in ok[:-2]:
+            rank = -rank
+        self.update_checked_list(rank)
+        return True
+#--------------------------------------------------------------------------------
+    def update_checked_list(self, item: int):
+        if item == 0:
+            print('item == 0, est-ce normal ?')
+            return
+        if item > 0:
+            self.checked_list.append(item)
+        if item < 0:
+            item = -item
+            self.checked_list.remove(item)
         self.checked_list.sort()
-        print('---', self.checked_list)
+        print('upd lst', self.checked_list)
 #--------------------------------------------------------------------------------
     def w(self, rank: int):
         return self.layout.itemAt(rank).widget()
+#################################################################################
+class Controls(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        hbox = QHBoxLayout()
+        self.setLayout(hbox)
+        btn_add_to_date = QPushButton('')
+        btn_add_to_date.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
+        hbox.addWidget(btn_add_to_date)
 #################################################################################
 class Thumbnails(QWidget):
     """
@@ -276,7 +288,7 @@ class Thumbnails(QWidget):
         self.btn = QPushButton('')
         self.update_hide_button(False)
         self.btn.setCheckable(True)
-        self.btn.setFixedSize(BUTTON_H_SIZE, BUTTON_V_SIZE)
+        self.btn.setFixedSize(MASK_BUTTON_H_SIZE, BUTTON_V_SIZE)
         self.btn.clicked.connect(self.hide)
 
         # creates a checkbox to change bg color

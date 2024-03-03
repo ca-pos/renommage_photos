@@ -20,10 +20,6 @@ QCheckBox#colored::indicator {
 QPushButton{
     background-color: yellow;
 }
-/* QCheckBox::indicator:checked
-{
-    image: url(./icons/_active__yes.png);
-} */
 QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;

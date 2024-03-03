@@ -3,7 +3,7 @@ import shutil
 
 import rawpy
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QGridLayout, QVBoxLayout, QWidget
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QFile, QTextStream, QIODevice
 
@@ -30,6 +30,7 @@ class MainWindow(QMainWindow):
         self.create_thumb_jpeg(photos_test)
         self.setUI()
         self.show_display()
+        self.show_controls()
 #--------------------------------------------------------------------------------
     def create_thumb_jpeg(self, photos_test: tuple):
         """
@@ -54,20 +55,21 @@ class MainWindow(QMainWindow):
     def setUI(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        self.main_layout = QGridLayout()
+        self.main_layout = QVBoxLayout()
         self.main_layout.setSpacing(0)
         central_widget.setLayout(self.main_layout)
 #--------------------------------------------------------------------------------
     def show_display(self):
-        # création du widget gallery (contient des objets Thumbnails)
         # creates widget gallery (contains Thumbnails objects)
-        self.gallery = Gallery()
-        # création de la scrollarea display qui contient gallery
+        gallery = Gallery()
         # creates scrollarea (contains gallery)
-        self.display = Display(self.gallery)
-        # ajouter la scrollaera au layout principal (du central widget)
+        display = Display(gallery)
         # adds scrollarea to main layout (central widget)
-        self.main_layout.addWidget(self.display)
+        self.main_layout.addWidget(display)
+#--------------------------------------------------------------------------------
+    def show_controls(self):
+        controls = Controls()
+        self.main_layout.addWidget(controls)
 #################################################################################
 #################################################################################
 def main():
