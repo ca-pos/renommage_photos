@@ -81,7 +81,7 @@ class Gallery(QWidget):
     Class Variables:
         hidden_list: list of the thumbnails to be displayed blurred
     """
-    def __init__(self):
+    def __init__(self, controls):
         """
         __init__ creates Gallery objects
         """
@@ -94,30 +94,30 @@ class Gallery(QWidget):
         self.last = -1
         self.list_set = False
         self.checked_list = list()
+        self.old_date = ''
         
-        layout = QHBoxLayout()
-        layout.setSpacing(0)
-        layout.addStretch()
-        self.setLayout(layout)
+        self.layout = QHBoxLayout()
+        self.layout.setSpacing(0)
+        self.layout.addStretch()
+        self.setLayout(self.layout)
         
-        bg_color = self.new_color()
-        for i in range(len(fichier_raw)):
+        for i_thumb in range(len(fichier_raw)):
             # only for development with short photo list
-            if i > 3:       
+            if i_thumb > 3:       
                continue
-            photo_file = fichier_raw[i]
+            photo_file = fichier_raw[i_thumb]
             th = Thumbnails(photo_file)
-            exif = th.exif
-            if i == 0:
-                old_date = exif.date
-            if not old_date == exif.date:
-                bg_color = self.new_color()
-                old_date = exif.date
-            th.set_bg_color(bg_color)
-
+            self.layout.addWidget(th)
+            th.set_bg_color(self.assign_bg_color(th.rank))
             th.selected.connect(partial(self.thumb_selected, th.rank))
             th.colored.connect(partial(self.change_group_bg_color, th.exif.date))
-            layout.addWidget(th)
+#--------------------------------------------------------------------------------
+    def assign_bg_color(self, rank: int):
+        if rank > 1 and self.w(rank).exif.date == self.w(rank-1).exif.date:
+            color = self.w(rank-1).get_bg_color()
+        else:
+            color = self.new_color()
+        return str(color)
 #--------------------------------------------------------------------------------
     def change_group_bg_color(self, date:str, e: str):
         bg_color = self.new_color()
@@ -218,9 +218,12 @@ class Controls(QWidget):
 
         hbox = QHBoxLayout()
         self.setLayout(hbox)
-        btn_add_to_date = QPushButton('')
-        btn_add_to_date.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
-        hbox.addWidget(btn_add_to_date)
+        lbl_suffix = QLabel('Ajouter un suffixe à la date de la sélection')
+        btn_add_suffix = QPushButton('')
+        btn_add_suffix.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
+        hbox.addWidget(lbl_suffix)
+        hbox.addWidget(btn_add_suffix)
+        hbox.addStretch()
 #################################################################################
 class Thumbnails(QWidget):
     """
@@ -269,7 +272,7 @@ class Thumbnails(QWidget):
         """
         super().__init__()
         self.exif = PhotoExif(photo)
-        self.bg_color = ''
+        self.bg_color = '#bbb' #maybe useless, to check
         self.is_selected = False
         self._full_path_tmp = TMP_DIR + self.exif.original_name + '.jpeg'
         self._full_path_tmp_blurred = TMP_DIR + self.exif.original_name + BLURRED + '.jpeg'
@@ -301,7 +304,7 @@ class Thumbnails(QWidget):
         self.select = QPushButton()# QCheckBox()
         self.select.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
         self.select.clicked.connect(self._selection)
-        self.select.setStyleSheet('background-color: #bbb')
+        self.select.setStyleSheet(f'background-color: {self.bg_color}')
         self.select.setIconSize(QSize(ICON_H_SIZE, ICON_V_SIZE))
         self.set_selection(False)
 
@@ -336,15 +339,16 @@ class Thumbnails(QWidget):
     def get_selection(self):
         return self.is_selected
 #--------------------------------------------------------------------------------
-    # def set_checked(self, flag):
-    #     self.select.setChecked(flag)
-#--------------------------------------------------------------------------------
     def blur_pixmap(self):
         if not Path(self._full_path_tmp_blurred).exists():
             img = Image.open(self._full_path_tmp)
             img = img.filter(ImageFilter.GaussianBlur(80))
             img.save(self._full_path_tmp_blurred)
         self.set_pixmap(self._full_path_tmp_blurred)
+#--------------------------------------------------------------------------------
+    def get_bg_color(self):
+        print('+++', self.bg_color)
+        return self.bg_color
 #--------------------------------------------------------------------------------
     def set_bg_color(self, color: str):
         """

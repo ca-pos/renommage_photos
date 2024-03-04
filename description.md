@@ -1,6 +1,6 @@
 # Cahier des charges
 
-## opérations à réaliser
+## Opérations à réaliser
 
 1. lire les fichiers raw tels qu'issus de la carte mémoire
 1. lire les exif (dans un objet Photo)
@@ -8,7 +8,8 @@
 1. les afficher (vignettes)
 1. afficher la date (jour)
 1. (optionnel) les agrandir en cliquant dessus
-1. boutons conserver et supprimer (suppression physique sur le disque)
+1. boutons "Masquer" (flouter) et "Afficher"
+1. bouton de suppresion des vignettes masquées
 1. pour les photos conservées, selection d'une ou plusieurs photos
 1. demander le titre du répertoire
 1. demander s'il y a plusieurs répertoires pour une même journée (groupes)
@@ -28,22 +29,31 @@
     1. nom du répertoire
 1. copier la photo à son emplacement
 
-## objet photo
-### reçoit
+## Contrôles
+### Entrées
+1. répertoire d'origine (par défaut carte mémoire ?)
+1. répertoire de sortie
+### Opérations
+1. suppression de l'affichage des vignettes masquées
+1. ajout d'un suffixe aux vignettes sélectionnées (vérifier qu'elles sont d'une même journée)
+1. bouton "Exécuter"
+
+## Objet photo
+### Reçoit
 chemin vers une photo au format NEF
-### paramètres
+### Paramètres
 1. thumbnail
 1. file_path
 1. file_name
 1. file_extension
 1. file_number
 1. orientation
-### méthodes
+### Méthodes
 1. extraire un petit jpeg (thumbnail ?)
 1. les différentes composantes du chemin
 1. extraire les exif (date, orientation)
 
-## widgets
+## Widgets
 
 1. QLabel : affichage des photos
 1. sous les photos, 2 QRadioButton : conserver, supprimer

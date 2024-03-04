@@ -30,7 +30,7 @@ class MainWindow(QMainWindow):
         self.create_thumb_jpeg(photos_test)
         self.setUI()
         self.show_display()
-        self.show_controls()
+        # self.show_controls()
 #--------------------------------------------------------------------------------
     def create_thumb_jpeg(self, photos_test: tuple):
         """
@@ -60,15 +60,13 @@ class MainWindow(QMainWindow):
         central_widget.setLayout(self.main_layout)
 #--------------------------------------------------------------------------------
     def show_display(self):
+        controls = Controls()
         # creates widget gallery (contains Thumbnails objects)
-        gallery = Gallery()
+        gallery = Gallery(controls)
         # creates scrollarea (contains gallery)
         display = Display(gallery)
         # adds scrollarea to main layout (central widget)
         self.main_layout.addWidget(display)
-#--------------------------------------------------------------------------------
-    def show_controls(self):
-        controls = Controls()
         self.main_layout.addWidget(controls)
 #################################################################################
 #################################################################################
