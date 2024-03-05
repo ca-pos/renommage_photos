@@ -51,6 +51,7 @@ class PhotoExif():
             file: str
                 path to the RAW file
         """
+        self._date_suffix = ''
         path = Path(file)
         self.dir = str(path.cwd()) # maybe useless
         self.original_name = path.stem
@@ -58,15 +59,27 @@ class PhotoExif():
         meta_data = pyexiv2.ImageMetadata(file)
         meta_data.read()
         self.date = meta_data['Exif.Image.DateTimeOriginal'].value.strftime('%Y %m %d')
-        index = int(self.date[5:7]) - 1
-        tmp_date = self.date[3] + string.ascii_uppercase[index] + self.date[-2:]
-        self.compressed_date = (self.date[0:3]+'X', tmp_date)
         orientation = meta_data['Exif.Image.Orientation'].value
         self.orientation = 'portrait' if orientation == 8 else 'landscape'
         if self.original_suffix == '.NEF':
             self.nikon_file_number = meta_data['Exif.NikonFi.FileNumber'].value
         else:
             self.nikon_file_number = -1
+#--------------------------------------------------------------------------------
+    @property
+    def date_suffix(self):
+        print('Récupération du suffixe de la date')
+        return str(self._date_suffix)
+    @date_suffix.setter
+    def date_suffix(self, suffix):
+        print('Attribution suffixe')
+        self._date_suffix = suffix
+    @property
+    def compressed_date(self):
+        index = int(self.date[5:7]) - 1
+        tmp_date = self.date[3] + string.ascii_uppercase[index] + self.date[-2:]
+        self._compressed_date = (self.date[0:3]+'0', tmp_date, self.date_suffix)
+        return self._compressed_date
 #################################################################################
 class Gallery(QWidget):
     """
@@ -94,7 +107,6 @@ class Gallery(QWidget):
         self.last = -1
         self.list_set = False
         self.checked_list = list()
-        self.old_date = ''
         
         self.layout = QHBoxLayout()
         self.layout.setSpacing(0)
@@ -103,14 +115,44 @@ class Gallery(QWidget):
         
         for i_thumb in range(len(fichier_raw)):
             # only for development with short photo list
-            if i_thumb > 3:       
+            if i_thumb > 30:       
                continue
             photo_file = fichier_raw[i_thumb]
             th = Thumbnails(photo_file)
             self.layout.addWidget(th)
             th.set_bg_color(self.assign_bg_color(th.rank))
             th.selected.connect(partial(self.thumb_selected, th.rank))
-            th.colored.connect(partial(self.change_group_bg_color, th.exif.date))
+            th.colored.connect(partial(self.change_group_bg_color, th.exif.compressed_date))
+        controls.sliced.connect(self.slice_date)
+#--------------------------------------------------------------------------------
+    def slice_date(self):
+        if self.different_dates():
+            return
+        suffix = self.get_suffix_index()
+        for i in self.checked_list:
+            self.w(i).exif.date_suffix = suffix
+            print(i, self.w(i).exif.compressed_date)
+#--------------------------------------------------------------------------------
+    def get_suffix_index(self) -> str:
+        suffixes = string.ascii_lowercase
+        first_index = self.checked_list[0]
+        if self.first_series_of_day(first_index):
+            return 'a'
+        else:
+            previous = self.w(first_index-1).exif.date_suffix
+            return suffixes[suffixes.index(previous) + 1]
+#--------------------------------------------------------------------------------
+    def first_series_of_day(self, first_index: int):
+        if not self.w(first_index).exif.date == self.w(first_index-1).exif.date:
+            return True
+        return False
+#--------------------------------------------------------------------------------
+    def different_dates(self):
+        for i in self.checked_list[1:]:
+            if not self.w(i).exif.date == self.w(i-1).exif.date:
+                print('Pas la même date rangs : ', i-1, i)
+                return True
+        return False
 #--------------------------------------------------------------------------------
     def assign_bg_color(self, rank: int):
         if rank > 1 and self.w(rank).exif.date == self.w(rank-1).exif.date:
@@ -119,10 +161,10 @@ class Gallery(QWidget):
             color = self.new_color()
         return str(color)
 #--------------------------------------------------------------------------------
-    def change_group_bg_color(self, date:str, e: str):
+    def change_group_bg_color(self, date: tuple, e: str):
         bg_color = self.new_color()
         for i in range(1, Thumbnails.count + 1):
-            if self.w(i).exif.date == date:
+            if self.w(i).exif.compressed_date == date:
                 self.w(i).set_bg_color(bg_color)
 #--------------------------------------------------------------------------------
     def new_color(self):
@@ -213,17 +255,23 @@ class Gallery(QWidget):
         return self.layout.itemAt(rank).widget()
 #################################################################################
 class Controls(QWidget):
+    sliced = Signal(bool)
     def __init__(self):
         super().__init__()
 
         hbox = QHBoxLayout()
         self.setLayout(hbox)
-        lbl_suffix = QLabel('Ajouter un suffixe à la date de la sélection')
-        btn_add_suffix = QPushButton('')
-        btn_add_suffix.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
-        hbox.addWidget(lbl_suffix)
-        hbox.addWidget(btn_add_suffix)
+        lbl_slice_date = QLabel('Ajouter un suffixe à la date de la sélection')
+        btn_slice_date = QPushButton('')
+        btn_slice_date.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
+        btn_slice_date.clicked.connect(self._slice)
+        hbox.addWidget(lbl_slice_date)
+        hbox.addWidget(btn_slice_date)
         hbox.addStretch()
+#--------------------------------------------------------------------------------
+    @Slot(result=bool)
+    def _slice(self, event:int):
+        self.sliced.emit(True)
 #################################################################################
 class Thumbnails(QWidget):
     """
@@ -347,7 +395,6 @@ class Thumbnails(QWidget):
         self.set_pixmap(self._full_path_tmp_blurred)
 #--------------------------------------------------------------------------------
     def get_bg_color(self):
-        print('+++', self.bg_color)
         return self.bg_color
 #--------------------------------------------------------------------------------
     def set_bg_color(self, color: str):
