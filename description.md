@@ -34,8 +34,9 @@
 1. répertoire d'origine (par défaut carte mémoire ?)
 1. répertoire de sortie
 ### Opérations
-1. suppression de l'affichage des vignettes masquées
 1. ajout d'un suffixe aux vignettes sélectionnées (vérifier qu'elles sont d'une même journée)
+1. suppression de l'affichage des vignettes masquées
+1. réinitialer la sélection (first = -1, last = -1, checked_list = [])
 1. bouton "Exécuter"
 
 ## Objet photo

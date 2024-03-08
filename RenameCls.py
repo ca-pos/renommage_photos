@@ -68,17 +68,17 @@ class PhotoExif():
 #--------------------------------------------------------------------------------
     @property
     def date_suffix(self):
-        print('Récupération du suffixe de la date')
+        # print('Récupération du suffixe de la date')
         return str(self._date_suffix)
     @date_suffix.setter
-    def date_suffix(self, suffix):
-        print('Attribution suffixe')
+    def date_suffix(self, suffix: str):
+        # print('Attribution suffixe')
         self._date_suffix = suffix
     @property
     def compressed_date(self):
         index = int(self.date[5:7]) - 1
         tmp_date = self.date[3] + string.ascii_uppercase[index] + self.date[-2:]
-        self._compressed_date = (self.date[0:3]+'0', tmp_date, self.date_suffix)
+        self._compressed_date = (str(self.date[0:3])+'0', str(tmp_date), self.date_suffix)
         return self._compressed_date
 #################################################################################
 class Gallery(QWidget):
@@ -114,7 +114,9 @@ class Gallery(QWidget):
         self.setLayout(self.layout)
         
         for i_thumb in range(len(fichier_raw)):
-            # only for development with short photo list
+            # only for development
+            # for development with short photo list, set to 3
+            # for development with long photo list, set > 12
             if i_thumb > 30:       
                continue
             photo_file = fichier_raw[i_thumb]
@@ -122,27 +124,50 @@ class Gallery(QWidget):
             self.layout.addWidget(th)
             th.set_bg_color(self.assign_bg_color(th.rank))
             th.selected.connect(partial(self.thumb_selected, th.rank))
-            th.colored.connect(partial(self.change_group_bg_color, th.exif.compressed_date))
+            th.colored.connect(partial(self.change_group_bg_color, th.rank))
         controls.sliced.connect(self.slice_date)
 #--------------------------------------------------------------------------------
     def slice_date(self):
         if self.different_dates():
             return
-        suffix = self.get_suffix_index()
-        for i in self.checked_list:
-            self.w(i).exif.date_suffix = suffix
-            print(i, self.w(i).exif.compressed_date)
-#--------------------------------------------------------------------------------
-    def get_suffix_index(self) -> str:
-        suffixes = string.ascii_lowercase
         first_index = self.checked_list[0]
+        original_date = self.w(first_index).exif.compressed_date
+        #self.w(3).exif.date_suffix = 'a'    # development only
+        suffix = self.get_suffix(first_index) # 1st index needed for comparison with previous item
+        for i in self.checked_list:
+            self.update_thumbnail_date(i, suffix)
+        self.change_group_bg_color(i, 0)
+
+        remaining_list = list()
+        next_suffix = self.get_next_letter(suffix)
+        for i in range(1, Thumbnails.count+1):
+            if self.w(i).exif.compressed_date == original_date:
+                self.update_thumbnail_date(i, next_suffix)
+                remaining_list.append(i)
+        print(original_date, remaining_list)
+
+#--------------------------------------------------------------------------------
+    def update_thumbnail_date(self, i, suffix):
+            # update suffix
+            self.w(i).exif.date_suffix = suffix
+            # update title
+            thumbnail_title = self.w(i).get_thumbnail_title()[:-1] + suffix + ')'
+            self.w(i).set_thumbnail_title(thumbnail_title)
+#--------------------------------------------------------------------------------
+    def get_suffix(self, first_index):
         if self.first_series_of_day(first_index):
             return 'a'
         else:
             previous = self.w(first_index-1).exif.date_suffix
-            return suffixes[suffixes.index(previous) + 1]
+            return self.get_next_letter(previous)
+#--------------------------------------------------------------------------------
+    def get_next_letter(self, letter):
+            letters = string.ascii_lowercase
+            return letters[letters.index(letter) + 1]
 #--------------------------------------------------------------------------------
     def first_series_of_day(self, first_index: int):
+        if first_index == 1:
+            return True
         if not self.w(first_index).exif.date == self.w(first_index-1).exif.date:
             return True
         return False
@@ -161,7 +186,8 @@ class Gallery(QWidget):
             color = self.new_color()
         return str(color)
 #--------------------------------------------------------------------------------
-    def change_group_bg_color(self, date: tuple, e: str):
+    def change_group_bg_color(self, rank: int, e: int):
+        date = self.w(rank).exif.compressed_date
         bg_color = self.new_color()
         for i in range(1, Thumbnails.count + 1):
             if self.w(i).exif.compressed_date == date:
@@ -327,9 +353,10 @@ class Thumbnails(QWidget):
         Thumbnails.count += 1 
         self.rank = Thumbnails.count
 
-        thumbnail_title = self.exif.original_name + '  ('  + self.exif.date.replace(' ', '/') + ')'
+        # self._thumbnail_title = ''
+        self.thumbnail_title = self.exif.original_name + '  ('  + self.exif.date.replace(' ', '/') + ')'
         reversed_date = '/'.join(list(reversed(self.exif.date.split(' '))))
-        thumbnail_title = self.exif.original_name + '  (' + reversed_date +')'
+        self.thumbnail_title = self.exif.original_name + '  (' + reversed_date + self.exif.date_suffix + ')'
 
         self._label = QLabel(self)
         self._label.setStyleSheet('margin: 0px 0px 5px 0px')
@@ -359,15 +386,15 @@ class Thumbnails(QWidget):
         layout  = QGridLayout()
         self.setLayout(layout)
 
-        groupbox = QGroupBox(thumbnail_title)
-        groupbox.setFixedHeight(self._pixmap.height()+self.btn.height()+45)
-        groupbox.setFixedWidth(int(1.0*self._pixmap.width()))
-        layout.addWidget(groupbox)
+        self.groupbox = QGroupBox(self.thumbnail_title)
+        self.groupbox.setFixedHeight(self._pixmap.height()+self.btn.height()+45)
+        self.groupbox.setFixedWidth(int(1.0*self._pixmap.width()))
+        layout.addWidget(self.groupbox)
 
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
         hbox.setSpacing(0)
-        groupbox.setLayout(vbox)
+        self.groupbox.setLayout(vbox)
         vbox.addWidget(self._label)
         hbox.addWidget(self.btn, alignment=Qt.AlignmentFlag.AlignLeft)
         hbox.addStretch()
@@ -376,6 +403,12 @@ class Thumbnails(QWidget):
         vbox.addLayout(hbox)
         vbox.setSpacing(0)
         vbox.addStretch()
+#--------------------------------------------------------------------------------
+    def get_thumbnail_title(self):
+        return self.thumbnail_title
+#--------------------------------------------------------------------------------
+    def set_thumbnail_title(self, title):
+        self.groupbox.setTitle(title)
 #--------------------------------------------------------------------------------
     def set_selection(self, flag: bool):
         self.is_selected = flag
@@ -425,17 +458,10 @@ class Thumbnails(QWidget):
 #--------------------------------------------------------------------------------
     @Slot(result=bool)
     def _selection(self, e: int):
-        # e: 2 = set, 0 = unset
-        # flag = not self.get_selection()
-        # self.set_selection(flag)
-        # set = True if e else False
-        # self.is_selected = set
         self.selected.emit(True)
-#--------------------------------------------------------------------------------
-    @Slot(result=bool)
+    @Slot(result=str)
     def _change_color(self, e: int):
-        self.colored.emit('')
-#--------------------------------------------------------------------------------
+        self.colored.emit(self.rank)
     @Slot(result=str)
     def hide(self):
         if self.btn.isChecked():
