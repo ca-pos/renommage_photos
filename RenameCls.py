@@ -51,11 +51,13 @@ class PhotoExif():
             file: str
                 path to the RAW file
         """
+        self._file = file
         self._date_suffix = ''
         path = Path(file)
         self.dir = str(path.cwd()) # maybe useless
         self.original_name = path.stem
         self.original_suffix = path.suffix
+        # print('xxx', '/'.join([self.dir, file]))
         meta_data = pyexiv2.ImageMetadata(file)
         meta_data.read()
         self.date = meta_data['Exif.Image.DateTimeOriginal'].value.strftime('%Y %m %d')
@@ -66,6 +68,12 @@ class PhotoExif():
         else:
             self.nikon_file_number = -1
 #--------------------------------------------------------------------------------
+    @property
+    def file(self):
+        return self._file
+    @property
+    def full_path(self):
+        return '/'.join([self.dir, self.file])
     @property
     def date_suffix(self):
         # print('Récupération du suffixe de la date')
@@ -116,15 +124,16 @@ class Gallery(QWidget):
         # create Thumbnails and add to Gallery
         for i_thumb in range(len(fichier_raw)):
             # only for development --------------------------
-            # for development with short photo list, set to 3
+            # for development with short photo list, set to 4
             # for development with long photo list, set > 12
-            if i_thumb > 30:       
+            if i_thumb > 4:       
                continue
             # development -----------------------------------
             photo_file = fichier_raw[i_thumb]
             th = Thumbnails(photo_file)
             self.layout.addWidget(th)
             th.set_bg_color(self.assign_bg_color(th.rank))
+            print(th.exif.full_path)
             # process signals from thumbnails
             th.selected.connect(partial(self.thumb_selected, th.rank))
             th.colored.connect(partial(self.change_group_bg_color, th.rank))
@@ -133,33 +142,69 @@ class Gallery(QWidget):
         controls.cleared.connect(self.clear_selection)
 #--------------------------------------------------------------------------------
     def slice_date(self):
-        if self.different_dates(): # selection across dates boundary
-            return
-        
         first_index = self.checked_list[0]
-        # last_index = self.checked_list[-1]
-        original_date = self.w(first_index).exif.compressed_date
-        suffix = self.get_suffix(first_index) # 1st index needed for comparison with previous item
-        if suffix == '':    # selection don't begin at date boundary
-            print('Le début de la sélection n\'est pas sur une frontière de date')
+        original_suffix = self.w(first_index).exif.date_suffix        
+        if not self.valid_selection(first_index, original_suffix):
             return
-        # if suffix == self.w(first_index).exif.date_suffix:
-        #     print('orig', original_date)
-        #     return
+        if original_suffix == '':
+            self.initialize_all_dates(first_index) # replace '' with '?' & update thumbnail title
+
+        suffix = self.get_suffix(first_index)
         for i in self.checked_list:
-            self.update_thumbnail_date(i, suffix)
-        self.change_group_bg_color(i, 0)
-        self.update_next_item_date(original_date, suffix)
-        #following thumbnails of the same date receive next suffix
-        next_suffix = self.get_next_letter(suffix)
+            self.w(i).exif.date_suffix = suffix
+            self.update_thumbnail_title(i)
+        self.change_group_bg_color(first_index, 0)
         self.clear_selection()
+
+        for i in range(1, Thumbnails.count+1):
+            print(self.w(i).exif.compressed_date)
+        return
 #--------------------------------------------------------------------------------
-    def different_dates(self):
+    def valid_selection(self, first_index, original_suffix) ->bool:
+        print('La sélection est-elle valide ?')
+        boundary = self.different_dates()
+        if boundary > 0:
+            print(f'Pas la même date aux rangs', {boundary-1}, 'et', {boundary})
+            return False
+        if original_suffix == '' and not self.first_series_of_day(first_index):
+                print(f'Le début de la sélection', {first_index}, 'ne coincide pas avec un début de date')
+                return False
+        if original_suffix in list(string.ascii_lowercase):
+            print('La vignette n°', {original_suffix}, 'fait déjà partie d\'un groupe')
+            return False
+        if original_suffix == '?' and self.w(first_index-1).exif.date_suffix == '?':
+            print('Un ou plusieurs items oubliés avant', {first_index})
+            return False
+        return True
+#--------------------------------------------------------------------------------
+    def initialize_all_dates(self, first):
+        items_per_date = list()
+        for i in range(1, Thumbnails.count+1):
+            if self.w(i).exif.date == self.w(first).exif.date:
+                items_per_date.append(i)
+        for i in items_per_date:
+            self.w(i).exif.date_suffix = '?'
+#--------------------------------------------------------------------------------
+    def update_thumbnail_title(self, index):
+            title1 = self.w(index).get_thumbnail_title()[:-13]
+            title = self.w(index).get_thumbnail_title()[-12:-1]
+            title = title + self.w(index).get_date_suffix() +')'
+            print('title', title1, title)
+            self.w(index).set_thumbnail_title(title1 + title)
+#--------------------------------------------------------------------------------
+    def different_dates(self) -> int:
+        """
+        different_dates checks if the selecter items lies across date boundary
+
+        Returns:
+            int:
+                -1 if date is the same for all items
+                the boundary where the date change otherwise
+        """
         for i in self.checked_list[1:]:
             if not self.w(i).exif.date == self.w(i-1).exif.date:
-                print('Pas la même date aux rangs ', i-1, 'et', i)
-                return True
-        return False
+                return i
+        return -1
 #--------------------------------------------------------------------------------
     def clear_selection(self):
         for i in self.checked_list:
@@ -254,6 +299,41 @@ class Gallery(QWidget):
         self.update_checked_list(rank)
         return True
 #--------------------------------------------------------------------------------
+    def first_series_of_day(self, first_index: int):
+        if first_index == 1:
+            return True
+        if not self.w(first_index).exif.date == self.w(first_index-1).exif.date:
+            return True
+        return False
+#--------------------------------------------------------------------------------
+    def get_suffix(self, first_index):
+        if self.first_series_of_day(first_index):
+            return 'a'
+        else:
+            previous = self.w(first_index-1).exif.date_suffix
+            print('prev1', previous)
+            if not previous:
+                print('Erreur de début')
+                return ''
+            return self.get_next_letter(previous)
+#--------------------------------------------------------------------------------
+    def get_next_letter(self, letter):
+            letters = string.ascii_lowercase
+            print('gnext', letter, letters)
+            return letters[letters.index(letter) + 1]
+#--------------------------------------------------------------------------------
+    def update_checked_list(self, item: int):
+        if item == 0:
+            print('item == 0, est-ce normal ?')
+            return
+        if item > 0:
+            self.checked_list.append(item)
+        if item < 0:
+            item = -item
+            self.checked_list.remove(item)
+        self.checked_list.sort()
+        print('upd lst', self.checked_list)
+#--------------------------------------------------------------------------------
     def w(self, rank: int):
         return self.layout.itemAt(rank).widget()
 #--------------------------------------------------------------------------------
@@ -274,39 +354,6 @@ class Gallery(QWidget):
             # update title
             thumbnail_title = self.w(i).get_thumbnail_title()[:-1] + suffix + ')'
             self.w(i).set_thumbnail_title(thumbnail_title)
-#--------------------------------------------------------------------------------
-    def get_suffix(self, first_index):
-        if self.first_series_of_day(first_index):
-            return 'a'
-        else:
-            previous = self.w(first_index-1).exif.date_suffix
-            if not previous:
-                print('Erreur de début')
-                return ''
-            return self.get_next_letter(previous)
-#--------------------------------------------------------------------------------
-    def get_next_letter(self, letter):
-            letters = string.ascii_lowercase
-            return letters[letters.index(letter) + 1]
-#--------------------------------------------------------------------------------
-    def first_series_of_day(self, first_index: int):
-        if first_index == 1:
-            return True
-        if not self.w(first_index).exif.date == self.w(first_index-1).exif.date:
-            return True
-        return False
-#--------------------------------------------------------------------------------
-    def update_checked_list(self, item: int):
-        if item == 0:
-            print('item == 0, est-ce normal ?')
-            return
-        if item > 0:
-            self.checked_list.append(item)
-        if item < 0:
-            item = -item
-            self.checked_list.remove(item)
-        self.checked_list.sort()
-        print('upd lst', self.checked_list)
 #################################################################################
 class Controls(QWidget):
     sliced = Signal(bool)
@@ -333,6 +380,11 @@ class Controls(QWidget):
         vbox_lbl.addWidget(lbl_clear_checked_list)
         vbox_btn.addWidget(btn_clear_checked_list)
 
+        layout = QGridLayout()
+        self.setLayout(layout)
+        groupbox_op = QGroupBox('Opérations')
+        layout.addWidget(groupbox_op)
+
         # add vboxes to hbox
         hbox = QHBoxLayout()
         hbox.addLayout(vbox_lbl)
@@ -340,6 +392,8 @@ class Controls(QWidget):
         # set self layout
         self.setLayout(hbox)
         hbox.addStretch()
+
+        groupbox_op.setLayout(hbox)
 #--------------------------------------------------------------------------------
     @Slot(result=bool)
     def _clear_selection(self, event: int):
@@ -452,6 +506,9 @@ class Thumbnails(QWidget):
         vbox.addLayout(hbox)
         vbox.setSpacing(0)
         vbox.addStretch()
+#--------------------------------------------------------------------------------
+    def get_date_suffix(self):
+        return self.exif.date_suffix
 #--------------------------------------------------------------------------------
     def get_thumbnail_title(self):
         return self.thumbnail_title

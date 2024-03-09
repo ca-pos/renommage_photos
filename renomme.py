@@ -18,10 +18,10 @@ class MainWindow(QMainWindow):
         ### only for the development phase --------------------------------------
         # will be from camera memory card in the final version
         # short list:
-        photos_test_short = ('_DSC7986.NEF', '_DSC8064.NEF', '_DSC8080.NEF', '_DSC8081.NEF')
+        photos_test_short = ('_DSC7986.NEF', '_DSC8064.NEF', '_DSC8080.NEF', '_DSC8081.NEF', '_DSC8084.NEF')
         # longer list: 
         photos_test_long = ('_DSC7986.NEF', '_DSC8064.NEF', '_DSC8080.NEF', '_DSC8081.NEF', '_DSC8084.NEF', '_DSC8134.NEF', '_DSC8135.NEF', '_DSC8145.NEF', '_DSC8146.NEF', '_DSC8147.NEF', '_DSC8148.NEF', '_DSC8149.NEF')
-        photos_test = photos_test_long
+        photos_test = photos_test_short
         # development only ------------------------------------------------------
 
         self.eventFilter = KeyPressFilter(parent=self)
