@@ -112,92 +112,61 @@ class Gallery(QWidget):
         self.layout.setSpacing(0)
         self.layout.addStretch()
         self.setLayout(self.layout)
-        
+
+        # create Thumbnails and add to Gallery
         for i_thumb in range(len(fichier_raw)):
-            # only for development
+            # only for development --------------------------
             # for development with short photo list, set to 3
             # for development with long photo list, set > 12
             if i_thumb > 30:       
                continue
+            # development -----------------------------------
             photo_file = fichier_raw[i_thumb]
             th = Thumbnails(photo_file)
             self.layout.addWidget(th)
             th.set_bg_color(self.assign_bg_color(th.rank))
+            # process signals from thumbnails
             th.selected.connect(partial(self.thumb_selected, th.rank))
             th.colored.connect(partial(self.change_group_bg_color, th.rank))
+        # process signals from controls
         controls.sliced.connect(self.slice_date)
+        controls.cleared.connect(self.clear_selection)
 #--------------------------------------------------------------------------------
     def slice_date(self):
-        if self.different_dates():
+        if self.different_dates(): # selection across dates boundary
             return
+        
         first_index = self.checked_list[0]
+        # last_index = self.checked_list[-1]
         original_date = self.w(first_index).exif.compressed_date
-        #self.w(3).exif.date_suffix = 'a'    # development only
         suffix = self.get_suffix(first_index) # 1st index needed for comparison with previous item
+        if suffix == '':    # selection don't begin at date boundary
+            print('Le début de la sélection n\'est pas sur une frontière de date')
+            return
+        # if suffix == self.w(first_index).exif.date_suffix:
+        #     print('orig', original_date)
+        #     return
         for i in self.checked_list:
             self.update_thumbnail_date(i, suffix)
         self.change_group_bg_color(i, 0)
-
-        remaining_list = list()
+        self.update_next_item_date(original_date, suffix)
+        #following thumbnails of the same date receive next suffix
         next_suffix = self.get_next_letter(suffix)
-        for i in range(1, Thumbnails.count+1):
-            if self.w(i).exif.compressed_date == original_date:
-                self.update_thumbnail_date(i, next_suffix)
-                remaining_list.append(i)
-        print(original_date, remaining_list)
-
-#--------------------------------------------------------------------------------
-    def update_thumbnail_date(self, i, suffix):
-            # update suffix
-            self.w(i).exif.date_suffix = suffix
-            # update title
-            thumbnail_title = self.w(i).get_thumbnail_title()[:-1] + suffix + ')'
-            self.w(i).set_thumbnail_title(thumbnail_title)
-#--------------------------------------------------------------------------------
-    def get_suffix(self, first_index):
-        if self.first_series_of_day(first_index):
-            return 'a'
-        else:
-            previous = self.w(first_index-1).exif.date_suffix
-            return self.get_next_letter(previous)
-#--------------------------------------------------------------------------------
-    def get_next_letter(self, letter):
-            letters = string.ascii_lowercase
-            return letters[letters.index(letter) + 1]
-#--------------------------------------------------------------------------------
-    def first_series_of_day(self, first_index: int):
-        if first_index == 1:
-            return True
-        if not self.w(first_index).exif.date == self.w(first_index-1).exif.date:
-            return True
-        return False
+        self.clear_selection()
 #--------------------------------------------------------------------------------
     def different_dates(self):
         for i in self.checked_list[1:]:
             if not self.w(i).exif.date == self.w(i-1).exif.date:
-                print('Pas la même date rangs : ', i-1, i)
+                print('Pas la même date aux rangs ', i-1, 'et', i)
                 return True
         return False
 #--------------------------------------------------------------------------------
-    def assign_bg_color(self, rank: int):
-        if rank > 1 and self.w(rank).exif.date == self.w(rank-1).exif.date:
-            color = self.w(rank-1).get_bg_color()
-        else:
-            color = self.new_color()
-        return str(color)
-#--------------------------------------------------------------------------------
-    def change_group_bg_color(self, rank: int, e: int):
-        date = self.w(rank).exif.compressed_date
-        bg_color = self.new_color()
-        for i in range(1, Thumbnails.count + 1):
-            if self.w(i).exif.compressed_date == date:
-                self.w(i).set_bg_color(bg_color)
-#--------------------------------------------------------------------------------
-    def new_color(self):
-        red = random.randint(0, 255)
-        green = random.randint(0, 255)
-        blue = random.randint(0, 255)
-        return '#%02x%02x%02x' % (red, green, blue)
+    def clear_selection(self):
+        for i in self.checked_list:
+            self.w(i).set_selection(False)
+        self.first = -1
+        self.last = -1
+        self.checked_list.clear()
 #--------------------------------------------------------------------------------  
     def thumb_selected(self, rank: int, button_checked: bool):
         self._modifier = str(Thumbnails.modifier).split('.')[1][:-8]
@@ -251,6 +220,26 @@ class Gallery(QWidget):
             self.last = -1
             self.update_checked_list(rank)
 #--------------------------------------------------------------------------------
+    def assign_bg_color(self, rank: int):
+        if rank > 1 and self.w(rank).exif.date == self.w(rank-1).exif.date:
+            color = self.w(rank-1).get_bg_color()
+        else:
+            color = self.new_color()
+        return str(color)
+#--------------------------------------------------------------------------------
+    def change_group_bg_color(self, rank: int, e: int):
+        date = self.w(rank).exif.compressed_date
+        bg_color = self.new_color()
+        for i in range(1, Thumbnails.count + 1):
+            if self.w(i).exif.compressed_date == date:
+                self.w(i).set_bg_color(bg_color)
+#--------------------------------------------------------------------------------
+    def new_color(self):
+        red = random.randint(0, 255)
+        green = random.randint(0, 255)
+        blue = random.randint(0, 255)
+        return '#%02x%02x%02x' % (red, green, blue)
+#--------------------------------------------------------------------------------
     def in_list_ok(self, rank):
         ok = list()
         ok.append(self.checked_list[0])
@@ -265,6 +254,48 @@ class Gallery(QWidget):
         self.update_checked_list(rank)
         return True
 #--------------------------------------------------------------------------------
+    def w(self, rank: int):
+        return self.layout.itemAt(rank).widget()
+#--------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------
+    def update_next_item_date(self, original_date, suffix):
+        next_suffix = self.get_next_letter(suffix)
+        first = -1
+        for i in range(1, Thumbnails.count+1):
+            if self.w(i).exif.compressed_date == original_date:
+                if first == -1:
+                    first = i
+                self.update_thumbnail_date(i, next_suffix)
+        print('i', first)       
+#--------------------------------------------------------------------------------
+    def update_thumbnail_date(self, i, suffix):
+            # update suffix
+            self.w(i).exif.date_suffix = suffix
+            # update title
+            thumbnail_title = self.w(i).get_thumbnail_title()[:-1] + suffix + ')'
+            self.w(i).set_thumbnail_title(thumbnail_title)
+#--------------------------------------------------------------------------------
+    def get_suffix(self, first_index):
+        if self.first_series_of_day(first_index):
+            return 'a'
+        else:
+            previous = self.w(first_index-1).exif.date_suffix
+            if not previous:
+                print('Erreur de début')
+                return ''
+            return self.get_next_letter(previous)
+#--------------------------------------------------------------------------------
+    def get_next_letter(self, letter):
+            letters = string.ascii_lowercase
+            return letters[letters.index(letter) + 1]
+#--------------------------------------------------------------------------------
+    def first_series_of_day(self, first_index: int):
+        if first_index == 1:
+            return True
+        if not self.w(first_index).exif.date == self.w(first_index-1).exif.date:
+            return True
+        return False
+#--------------------------------------------------------------------------------
     def update_checked_list(self, item: int):
         if item == 0:
             print('item == 0, est-ce normal ?')
@@ -276,25 +307,43 @@ class Gallery(QWidget):
             self.checked_list.remove(item)
         self.checked_list.sort()
         print('upd lst', self.checked_list)
-#--------------------------------------------------------------------------------
-    def w(self, rank: int):
-        return self.layout.itemAt(rank).widget()
 #################################################################################
 class Controls(QWidget):
     sliced = Signal(bool)
+    cleared = Signal(bool)
     def __init__(self):
         super().__init__()
 
-        hbox = QHBoxLayout()
-        self.setLayout(hbox)
+        vbox_lbl = QVBoxLayout()
+        vbox_btn = QVBoxLayout()
+        # add suffix to selection
         lbl_slice_date = QLabel('Ajouter un suffixe à la date de la sélection')
         btn_slice_date = QPushButton('')
         btn_slice_date.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
         btn_slice_date.clicked.connect(self._slice)
-        hbox.addWidget(lbl_slice_date)
-        hbox.addWidget(btn_slice_date)
+        # clear checked list
+        lbl_clear_checked_list = QLabel('Supprimer la sélection')
+        btn_clear_checked_list = QPushButton('')
+        btn_clear_checked_list.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
+        btn_clear_checked_list.clicked.connect(self._clear_selection)
+        
+        # add widgets to vboxes
+        vbox_lbl.addWidget(lbl_slice_date)
+        vbox_btn.addWidget(btn_slice_date)
+        vbox_lbl.addWidget(lbl_clear_checked_list)
+        vbox_btn.addWidget(btn_clear_checked_list)
+
+        # add vboxes to hbox
+        hbox = QHBoxLayout()
+        hbox.addLayout(vbox_lbl)
+        hbox.addLayout(vbox_btn)
+        # set self layout
+        self.setLayout(hbox)
         hbox.addStretch()
 #--------------------------------------------------------------------------------
+    @Slot(result=bool)
+    def _clear_selection(self, event: int):
+        self.cleared.emit(True)
     @Slot(result=bool)
     def _slice(self, event:int):
         self.sliced.emit(True)
