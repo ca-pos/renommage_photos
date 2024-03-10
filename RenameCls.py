@@ -18,7 +18,8 @@ from constants import *
 class Display(QScrollArea):
     def __init__(self, gallery) -> None:
         super().__init__()
-        self.setBackgroundRole(QPalette.Dark)
+        # self.setBackgroundRole(QPalette.Dark)
+        self.setStyleSheet('background-color: #303030')
         self.setWidget(gallery)
         self.setWidgetResizable(True)
 #################################################################################
@@ -142,6 +143,8 @@ class Gallery(QWidget):
         controls.cleared.connect(self.clear_selection)
 #--------------------------------------------------------------------------------
     def slice_date(self):
+        if len(self.checked_list) == 0: # no selection
+            return
         first_index = self.checked_list[0]
         original_suffix = self.w(first_index).exif.date_suffix        
         if not self.valid_selection(first_index, original_suffix):
@@ -383,7 +386,10 @@ class Controls(QWidget):
         layout = QGridLayout()
         self.setLayout(layout)
         groupbox_op = QGroupBox('Opérations')
+        groupbox_op.setObjectName('ctrl1')
+        groupbox_op.setFixedSize(int(.48*H_SIZE), 100)
         layout.addWidget(groupbox_op)
+        layout.setColumnStretch(1, 5)
 
         # add vboxes to hbox
         hbox = QHBoxLayout()
@@ -490,6 +496,7 @@ class Thumbnails(QWidget):
         self.setLayout(layout)
 
         self.groupbox = QGroupBox(self.thumbnail_title)
+        self.groupbox.setObjectName('thumb')
         self.groupbox.setFixedHeight(self._pixmap.height()+self.btn.height()+45)
         self.groupbox.setFixedWidth(int(1.0*self._pixmap.width()))
         layout.addWidget(self.groupbox)
