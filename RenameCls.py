@@ -58,7 +58,6 @@ class PhotoExif():
         self.dir = str(path.cwd()) # maybe useless
         self.original_name = path.stem
         self.original_suffix = path.suffix
-        # print('xxx', '/'.join([self.dir, file]))
         meta_data = pyexiv2.ImageMetadata(file)
         meta_data.read()
         self.date = meta_data['Exif.Image.DateTimeOriginal'].value.strftime('%Y %m %d')
@@ -111,6 +110,7 @@ class Gallery(QWidget):
         # development only ---------------------------------------------------------
         fichier_raw = [str(fichier) for fichier in Path('./pictures').glob('*.NEF')]
         fichier_raw = sorted(fichier_raw)
+        fichier_raw2 = ['pictures/_DSC8147.NEF', 'pictures/_DSC8148.NEF', 'pictures/_DSC8149.NEF']
         #----------------------------------------------------------------------------
         self.first = -1
         self.last = -1
@@ -122,7 +122,17 @@ class Gallery(QWidget):
         self.layout.addStretch()
         self.setLayout(self.layout)
 
-        # create Thumbnails and add to Gallery
+        ### create Thumbnails and add to Gallery
+        self.populate_gallery(fichier_raw)
+        ### process signals from controls
+        controls.sliced.connect(self.slice_date)
+        controls.cleared.connect(self.clear_selection)
+#--------------------------------------------------------------------------------
+    def clear_gallery(self):
+        for i in range(1, Thumbnails.count+1):
+            self.w(i).deleteLater()
+#--------------------------------------------------------------------------------
+    def populate_gallery(self, fichier_raw):
         for i_thumb in range(len(fichier_raw)):
             # only for development --------------------------
             # for development with short photo list, set to 4
@@ -134,13 +144,9 @@ class Gallery(QWidget):
             th = Thumbnails(photo_file)
             self.layout.addWidget(th)
             th.set_bg_color(self.assign_bg_color(th.rank))
-            print(th.exif.full_path)
-            # process signals from thumbnails
+            ### process signals from thumbnails
             th.selected.connect(partial(self.thumb_selected, th.rank))
             th.colored.connect(partial(self.change_group_bg_color, th.rank))
-        # process signals from controls
-        controls.sliced.connect(self.slice_date)
-        controls.cleared.connect(self.clear_selection)
 #--------------------------------------------------------------------------------
     def slice_date(self):
         if len(self.checked_list) == 0: # no selection
@@ -151,7 +157,6 @@ class Gallery(QWidget):
             return
         if original_suffix == '':
             self.initialize_all_dates(first_index) # replace '' with '?' & update thumbnail title
-
         suffix = self.get_suffix(first_index)
         for i in self.checked_list:
             self.w(i).exif.date_suffix = suffix
@@ -159,8 +164,8 @@ class Gallery(QWidget):
         self.change_group_bg_color(first_index, 0)
         self.clear_selection()
 
-        for i in range(1, Thumbnails.count+1):
-            print(self.w(i).exif.compressed_date)
+        # for i in range(1, Thumbnails.count+1):
+        #     print(self.w(i).exif.compressed_date)
         return
 #--------------------------------------------------------------------------------
     def valid_selection(self, first_index, original_suffix) ->bool:
@@ -187,12 +192,12 @@ class Gallery(QWidget):
                 items_per_date.append(i)
         for i in items_per_date:
             self.w(i).exif.date_suffix = '?'
+            self.update_thumbnail_title(i)
 #--------------------------------------------------------------------------------
     def update_thumbnail_title(self, index):
             title1 = self.w(index).get_thumbnail_title()[:-13]
             title = self.w(index).get_thumbnail_title()[-12:-1]
             title = title + self.w(index).get_date_suffix() +')'
-            print('title', title1, title)
             self.w(index).set_thumbnail_title(title1 + title)
 #--------------------------------------------------------------------------------
     def different_dates(self) -> int:
@@ -217,18 +222,24 @@ class Gallery(QWidget):
         self.checked_list.clear()
 #--------------------------------------------------------------------------------  
     def thumb_selected(self, rank: int, button_checked: bool):
-        self._modifier = str(Thumbnails.modifier).split('.')[1][:-8]
-        if self._modifier == 'Control':
-            if not self.in_list_ok(rank):
+
+        ### probablement inutile de vérifier l'existence de trous ici
+        ### si la sélection est pour être effacée, les trous ne posent pas problème
+        ### mais vérifier l'existence de trous dans slice_date
+
+        self._modifier = str(Thumbnails.modifier).split('.')[1][:-8]        
+        if self._modifier == 'Shift' or self._modifier == 'Control':
+            if self._modifier == 'Shift' and not self.in_list_ok(rank):
                 return
             flag = not self.w(rank).get_selection()
             self.w(rank).set_selection(flag)
+            print('upd lst 2', self.checked_list)
             return
 
         print('--->', self.checked_list)
 
         length = len(self.checked_list)
-        if length == 0:
+        if length == 0: # not in final version
             print('LISTE VIDE')
         if self.first == -1:
             print('On a le premier :', end=' ')
@@ -238,7 +249,7 @@ class Gallery(QWidget):
             self.w(rank).set_selection(True)
             return
         if self.last == -1:
-            if rank == self.first: # same thumb clicked twice
+            if rank == self.first: # same thumb clicked twice -> no selection
                 self.w(rank).set_selection(False)
                 self.first = -1
                 self.checked_list.clear()
@@ -314,7 +325,6 @@ class Gallery(QWidget):
             return 'a'
         else:
             previous = self.w(first_index-1).exif.date_suffix
-            print('prev1', previous)
             if not previous:
                 print('Erreur de début')
                 return ''
@@ -322,7 +332,6 @@ class Gallery(QWidget):
 #--------------------------------------------------------------------------------
     def get_next_letter(self, letter):
             letters = string.ascii_lowercase
-            print('gnext', letter, letters)
             return letters[letters.index(letter) + 1]
 #--------------------------------------------------------------------------------
     def update_checked_list(self, item: int):
@@ -341,16 +350,16 @@ class Gallery(QWidget):
         return self.layout.itemAt(rank).widget()
 #--------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------
-    def update_next_item_date(self, original_date, suffix):
-        next_suffix = self.get_next_letter(suffix)
-        first = -1
-        for i in range(1, Thumbnails.count+1):
-            if self.w(i).exif.compressed_date == original_date:
-                if first == -1:
-                    first = i
-                self.update_thumbnail_date(i, next_suffix)
-        print('i', first)       
-#--------------------------------------------------------------------------------
+#     def update_next_item_date(self, original_date, suffix):
+#         next_suffix = self.get_next_letter(suffix)
+#         first = -1
+#         for i in range(1, Thumbnails.count+1):
+#             if self.w(i).exif.compressed_date == original_date:
+#                 if first == -1:
+#                     first = i
+#                 self.update_thumbnail_date(i, next_suffix)
+#         print('i', first)       
+# #--------------------------------------------------------------------------------
     def update_thumbnail_date(self, i, suffix):
             # update suffix
             self.w(i).exif.date_suffix = suffix
@@ -372,7 +381,7 @@ class Controls(QWidget):
         btn_slice_date.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
         btn_slice_date.clicked.connect(self._slice)
         # clear checked list
-        lbl_clear_checked_list = QLabel('Supprimer la sélection')
+        lbl_clear_checked_list = QLabel('Réinitialiser la sélection')
         btn_clear_checked_list = QPushButton('')
         btn_clear_checked_list.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
         btn_clear_checked_list.clicked.connect(self._clear_selection)

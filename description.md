@@ -33,10 +33,13 @@
 ### Entrées
 1. répertoire d'origine (par défaut carte mémoire ?)
 1. répertoire de sortie
+1. sous/répertoire de sortie par dates ou sous/dates
 ### Opérations
 1. ajout d'un suffixe aux vignettes sélectionnées (vérifier qu'elles sont d'une même journée)
-1. suppression de l'affichage des vignettes masquées
 1. réinitialer la sélection (first = -1, last = -1, checked_list = [])
+1. suppression de l'affichage des vignettes masquées
+1. supprimer les vignettes sélectionnées
+1. supprimer les vignettes masquées
 1. bouton "Exécuter"
 
 ## Objet photo

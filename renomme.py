@@ -14,7 +14,6 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        ### seulement pour la mise au point
         ### only for the development phase --------------------------------------
         # will be from camera memory card in the final version
         # short list:
@@ -30,7 +29,6 @@ class MainWindow(QMainWindow):
         self.create_thumb_jpeg(photos_test)
         self.setUI()
         self.show_display()
-        # self.show_controls()
 #--------------------------------------------------------------------------------
     def create_thumb_jpeg(self, photos_test: tuple):
         """
