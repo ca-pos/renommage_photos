@@ -127,6 +127,12 @@ class Gallery(QWidget):
         ### process signals from controls
         controls.sliced.connect(self.slice_date)
         controls.cleared.connect(self.clear_selection)
+        controls.erase_blurred.connect(self.erase_blurred)
+#--------------------------------------------------------------------------------
+    def erase_blurred(self):
+        for i in range(1, Thumbnails.count+1):
+            if self.w(i).hidden:
+                print('hidden',i)
 #--------------------------------------------------------------------------------
     def clear_gallery(self):
         for i in range(1, Thumbnails.count+1):
@@ -183,6 +189,12 @@ class Gallery(QWidget):
         if original_suffix == '?' and self.w(first_index-1).exif.date_suffix == '?':
             print('Un ou plusieurs items oubliés avant', {first_index})
             return False
+        checked_list_range = self.checked_list[-1] - self.checked_list[0] + 1
+        print('clr', checked_list_range, len(self.checked_list))
+        if not checked_list_range == len(self.checked_list):
+            print('Les items sélectionnés ne sont pas contigus')
+            return False
+
         return True
 #--------------------------------------------------------------------------------
     def initialize_all_dates(self, first):
@@ -220,19 +232,17 @@ class Gallery(QWidget):
         self.first = -1
         self.last = -1
         self.checked_list.clear()
-#--------------------------------------------------------------------------------  
+#--------------------------------------------------------------------------------
     def thumb_selected(self, rank: int, button_checked: bool):
-
-        ### probablement inutile de vérifier l'existence de trous ici
-        ### si la sélection est pour être effacée, les trous ne posent pas problème
-        ### mais vérifier l'existence de trous dans slice_date
-
-        self._modifier = str(Thumbnails.modifier).split('.')[1][:-8]        
-        if self._modifier == 'Shift' or self._modifier == 'Control':
-            if self._modifier == 'Shift' and not self.in_list_ok(rank):
-                return
+        self._modifier = str(Thumbnails.modifier).split('.')[1][:-8]
+        if self._modifier == 'Control':
+            # if self._modifier == 'Shift' and not self.in_list_ok(rank):
+            #     return
             flag = not self.w(rank).get_selection()
             self.w(rank).set_selection(flag)
+            if rank in self.checked_list:
+                rank = -rank
+            self.update_checked_list(rank)
             print('upd lst 2', self.checked_list)
             return
 
@@ -299,19 +309,19 @@ class Gallery(QWidget):
         blue = random.randint(0, 255)
         return '#%02x%02x%02x' % (red, green, blue)
 #--------------------------------------------------------------------------------
-    def in_list_ok(self, rank):
-        ok = list()
-        ok.append(self.checked_list[0])
-        ok.append(self.checked_list[-1])
-        ok.append(self.checked_list[0]-1)
-        ok.append(self.checked_list[-1]+1)
-        if not rank in ok:
-            print('Il y a un trou')
-            return False
-        if rank in ok[:-2]:
-            rank = -rank
-        self.update_checked_list(rank)
-        return True
+    # def in_list_ok(self, rank):
+    #     ok = list()
+    #     ok.append(self.checked_list[0])
+    #     ok.append(self.checked_list[-1])
+    #     ok.append(self.checked_list[0]-1)
+    #     ok.append(self.checked_list[-1]+1)
+    #     if not rank in ok:
+    #         print('Il y a un trou')
+    #         return False
+    #     if rank in ok[:-2]:
+    #         rank = -rank
+    #     self.update_checked_list(rank)
+    #     return True
 #--------------------------------------------------------------------------------
     def first_series_of_day(self, first_index: int):
         if first_index == 1:
@@ -349,17 +359,6 @@ class Gallery(QWidget):
     def w(self, rank: int):
         return self.layout.itemAt(rank).widget()
 #--------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------
-#     def update_next_item_date(self, original_date, suffix):
-#         next_suffix = self.get_next_letter(suffix)
-#         first = -1
-#         for i in range(1, Thumbnails.count+1):
-#             if self.w(i).exif.compressed_date == original_date:
-#                 if first == -1:
-#                     first = i
-#                 self.update_thumbnail_date(i, next_suffix)
-#         print('i', first)       
-# #--------------------------------------------------------------------------------
     def update_thumbnail_date(self, i, suffix):
             # update suffix
             self.w(i).exif.date_suffix = suffix
@@ -368,8 +367,9 @@ class Gallery(QWidget):
             self.w(i).set_thumbnail_title(thumbnail_title)
 #################################################################################
 class Controls(QWidget):
-    sliced = Signal(bool)
-    cleared = Signal(bool)
+    sliced = Signal(bool)   # do slicing of the date
+    cleared = Signal(bool)  # clear selection
+    erase_blurred = Signal(bool) # suppress blurred items
     def __init__(self):
         super().__init__()
 
@@ -385,12 +385,20 @@ class Controls(QWidget):
         btn_clear_checked_list = QPushButton('')
         btn_clear_checked_list.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
         btn_clear_checked_list.clicked.connect(self._clear_selection)
+        # erase blurred items
+        lbl_erase_blurred = QLabel('Supprimer les items masqués')
+        btn_erase_blurred = QPushButton()
+        btn_erase_blurred.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
+        btn_erase_blurred.clicked.connect(self.erase_blurred)
+
         
         # add widgets to vboxes
         vbox_lbl.addWidget(lbl_slice_date)
         vbox_btn.addWidget(btn_slice_date)
         vbox_lbl.addWidget(lbl_clear_checked_list)
         vbox_btn.addWidget(btn_clear_checked_list)
+        vbox_lbl.addWidget(lbl_erase_blurred)
+        vbox_btn.addWidget(btn_erase_blurred)
 
         layout = QGridLayout()
         self.setLayout(layout)
@@ -416,6 +424,8 @@ class Controls(QWidget):
     @Slot(result=bool)
     def _slice(self, event:int):
         self.sliced.emit(True)
+    def _erase_blurred(self, event: int):
+        self.erase_blurred.emit(True)
 #################################################################################
 class Thumbnails(QWidget):
     """
@@ -470,6 +480,7 @@ class Thumbnails(QWidget):
         self._full_path_tmp_blurred = TMP_DIR + self.exif.original_name + BLURRED + '.jpeg'
         Thumbnails.count += 1 
         self.rank = Thumbnails.count
+        self._hidden = False
 
         # self._thumbnail_title = ''
         self.thumbnail_title = self.exif.original_name + '  ('  + self.exif.date.replace(' ', '/') + ')'
@@ -522,6 +533,13 @@ class Thumbnails(QWidget):
         vbox.addLayout(hbox)
         vbox.setSpacing(0)
         vbox.addStretch()
+#--------------------------------------------------------------------------------
+    @property
+    def hidden(self):
+        return self._hidden
+    @hidden.setter
+    def hidden(self, flag: bool):
+        self._hidden = flag
 #--------------------------------------------------------------------------------
     def get_date_suffix(self):
         return self.exif.date_suffix
@@ -587,9 +605,11 @@ class Thumbnails(QWidget):
     @Slot(result=str)
     def hide(self):
         if self.btn.isChecked():
+            self.hidden = True
             self.blur_pixmap()
             self.update_hide_button(True)
         else:
+            self.hidden = False
             self.set_pixmap(self._full_path_tmp)
             self.update_hide_button(False)
 #################################################################################
