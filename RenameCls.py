@@ -7,7 +7,7 @@ import random
 import string
 from functools import partial
 
-from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QGroupBox, QLabel, QPushButton, QHBoxLayout, QScrollArea, QCheckBox
+from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QGroupBox, QLabel, QPushButton, QHBoxLayout, QScrollArea, QCheckBox, QListWidget
 from PySide6.QtGui import QPixmap, QTransform, QPalette, QKeyEvent, QIcon
 from PySide6.QtCore import Qt, Signal, Slot, QObject, QSize
 from PIL import Image, ImageFilter
@@ -19,6 +19,8 @@ class Display(QScrollArea):
     def __init__(self, gallery) -> None:
         super().__init__()
         # self.setBackgroundRole(QPalette.Dark)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setFixedHeight(SCROLLAREA_V_SIZE)
         self.setStyleSheet('background-color: #303030')
         self.setWidget(gallery)
         self.setWidgetResizable(True)
@@ -132,7 +134,7 @@ class Gallery(QWidget):
     def erase_blurred(self):
         for i in range(1, Thumbnails.count+1):
             if self.w(i).hidden:
-                print('hidden',i)
+                self.w(i).deleteLater()
 #--------------------------------------------------------------------------------
     def clear_gallery(self):
         for i in range(1, Thumbnails.count+1):
@@ -369,54 +371,110 @@ class Gallery(QWidget):
 class Controls(QWidget):
     sliced = Signal(bool)   # do slicing of the date
     cleared = Signal(bool)  # clear selection
-    erase_blurred = Signal(bool) # suppress blurred items
+    erase_blurred = Signal(bool)  # remove blurred items
+    erase_selected = Signal(bool) # remove selected items
     def __init__(self):
         super().__init__()
 
-        vbox_lbl = QVBoxLayout()
-        vbox_btn = QVBoxLayout()
+        ### OPERATIONS GROUP
+
         # add suffix to selection
         lbl_slice_date = QLabel('Ajouter un suffixe à la date de la sélection')
-        btn_slice_date = QPushButton('')
-        btn_slice_date.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
-        btn_slice_date.clicked.connect(self._slice)
+        btn_slice_date = CPushButton(funct=self._slice)
         # clear checked list
         lbl_clear_checked_list = QLabel('Réinitialiser la sélection')
-        btn_clear_checked_list = QPushButton('')
-        btn_clear_checked_list.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
-        btn_clear_checked_list.clicked.connect(self._clear_selection)
-        # erase blurred items
+        btn_clear_checked_list = CPushButton(funct=self._clear_selection)
+        # subtitle
+        lbl_remove = QLabel('Suppression d\'items')
+        lbl_remove.setStyleSheet('font-size: 16px')
+        # remove blurred items
         lbl_erase_blurred = QLabel('Supprimer les items masqués')
-        btn_erase_blurred = QPushButton()
-        btn_erase_blurred.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
-        btn_erase_blurred.clicked.connect(self.erase_blurred)
-
-        
-        # add widgets to vboxes
-        vbox_lbl.addWidget(lbl_slice_date)
-        vbox_btn.addWidget(btn_slice_date)
-        vbox_lbl.addWidget(lbl_clear_checked_list)
-        vbox_btn.addWidget(btn_clear_checked_list)
-        vbox_lbl.addWidget(lbl_erase_blurred)
-        vbox_btn.addWidget(btn_erase_blurred)
-
-        layout = QGridLayout()
-        self.setLayout(layout)
-        groupbox_op = QGroupBox('Opérations')
-        groupbox_op.setObjectName('ctrl1')
-        groupbox_op.setFixedSize(int(.48*H_SIZE), 100)
-        layout.addWidget(groupbox_op)
-        layout.setColumnStretch(1, 5)
-
+        btn_erase_blurred = CPushButton(funct=self._erase_blurred)
+        # remove selected items
+        lbl_erase_selected = QLabel('Supprimer les items sélectionnés')
+        btn_erase_selected = CPushButton(funct=self._erase_selected)
+        # create vboxes for operations group (ctrl1)
+        vbox_lbl_op = QVBoxLayout() #for labels
+        vbox_btn_op = QVBoxLayout() #fot buttons
+        vbox_lbl_op.addWidget(lbl_slice_date)
+        vbox_btn_op.addWidget(btn_slice_date)
+        vbox_lbl_op.addWidget(lbl_clear_checked_list)
+        vbox_btn_op.addWidget(btn_clear_checked_list)
+        vbox_lbl_op.addWidget(lbl_remove)  # subtitle removing ops
+        vbox_btn_op.addWidget(QLabel(""))  # create an empty line in button column
+        vbox_lbl_op.addWidget(lbl_erase_blurred, alignment=Qt.AlignmentFlag.AlignRight)
+        vbox_btn_op.addWidget(btn_erase_blurred)
+        vbox_lbl_op.addWidget(lbl_erase_selected, alignment=Qt.AlignmentFlag.AlignRight)
+        vbox_btn_op.addWidget(btn_erase_selected)
         # add vboxes to hbox
-        hbox = QHBoxLayout()
-        hbox.addLayout(vbox_lbl)
-        hbox.addLayout(vbox_btn)
-        # set self layout
-        self.setLayout(hbox)
-        hbox.addStretch()
+        hbox_op = QHBoxLayout()
+        hbox_op.addLayout(vbox_lbl_op)
+        hbox_op.addLayout(vbox_btn_op)
+        # groupbox for operations commands
+        groupbox_op = QGroupBox('Opérations')
+        groupbox_op.setFixedSize(int(.35*H_SIZE), GROUP_1_V_SIZE)
+        groupbox_op.setObjectName('ctrl1')
+        groupbox_op.setLayout(hbox_op)
 
-        groupbox_op.setLayout(hbox)
+        ### DIRECTORIES GROUP
+
+        # origin dir button
+        btn_origin_dir = QPushButton('Répertoire d\'origine')
+        btn_origin_dir.setObjectName('btn_orig')
+        # origin dir reminder
+        lst_orig_dir = QListWidget()
+        lst_orig_dir.setFixedHeight(20)
+        lst_orig_dir.addItem('Origine')
+        lst_dest_dir = QListWidget()
+        lst_dest_dir.setFixedHeight(20)
+        lst_dest_dir.addItem('Destination')
+        # destination dir button
+        btn_dest_dir = QPushButton('Répertoire de sortie')
+        btn_dest_dir.setObjectName('btn_dest')
+        # create vboxes for dir buttons 
+        vbox_dir_orig = QVBoxLayout()
+        vbox_dir_dest = QVBoxLayout()
+        vbox_dir_orig.addWidget(btn_origin_dir)
+        vbox_dir_dest.addWidget(btn_dest_dir)
+        vbox_dir_orig.addWidget(lst_orig_dir)
+        vbox_dir_dest.addWidget(lst_dest_dir)
+        # add vboxes to hbox_dir
+        hbox_dir = QHBoxLayout()
+        hbox_dir.addLayout(vbox_dir_orig)
+        hbox_dir.addLayout(vbox_dir_dest)
+        # groupbox for dir buttons
+        groupbox_dir = QGroupBox('Répertoires')
+        # groupbox_dir.setFixedHeight(100)
+        groupbox_dir.setObjectName('ctrl2')
+        groupbox_dir.setLayout(hbox_dir)
+
+        ### ACTION BUTTONS
+
+        # start button
+        btn_xqt = QPushButton('Exécuter')
+        btn_xqt.setObjectName('xqt')
+        btn_xqt.setFixedSize(ACT_BTN_SIZE)
+        # help button
+        btn_help = QPushButton('Aide')
+        btn_help.setObjectName('help')
+        btn_help.setFixedSize(ACT_BTN_SIZE)
+        # add buttons to hbox_act
+        hbox_act = QHBoxLayout()
+        hbox_act.addWidget(btn_help)
+        hbox_act.addWidget(btn_xqt)
+        # groupbox for act buttons (probably unecessary)
+        groupbox_act = QGroupBox()
+        groupbox_act.setLayout(hbox_act)
+
+
+        ### GLOBAL LAYOUT
+        layout = QGridLayout()  # global layout
+        self.setLayout(layout)
+        layout.addWidget(groupbox_op, 0, 0, 2, 1)
+        layout.addWidget(groupbox_dir, 0, 1, 1, 1)
+        # layout.setColumnStretch(1, 5)
+
+        layout.addWidget(groupbox_act, 1, 1, 1, 1)
 #--------------------------------------------------------------------------------
     @Slot(result=bool)
     def _clear_selection(self, event: int):
@@ -424,8 +482,17 @@ class Controls(QWidget):
     @Slot(result=bool)
     def _slice(self, event:int):
         self.sliced.emit(True)
+    @Slot(result=bool)
     def _erase_blurred(self, event: int):
         self.erase_blurred.emit(True)
+    def _erase_selected(self, event: int):
+        self.erase_selected.emit(True)
+#################################################################################
+class CPushButton(QPushButton):
+    def __init__(self, funct):
+        super().__init__()
+        self.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
+        self.clicked.connect(funct)
 #################################################################################
 class Thumbnails(QWidget):
     """

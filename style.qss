@@ -20,6 +20,15 @@ QCheckBox#colored::indicator {
 QPushButton{
     background-color: #777;
 }
+QPushButton#btn_orig, QPushButton#btn_dest {
+    font-size: 14px;
+}
+QPushButton#help {
+    background-color: #2EABA5;
+}
+QPushButton#xqt {
+    background-color: #D1545A;
+}
 QGroupBox#thumb {
     border: 1px solid silver;
     border-radius: 3px;
@@ -34,13 +43,13 @@ QGroupBox#thumb::title {
     padding: 3px 5px; 
     margin: 5px 1px 0px 1px;
 }
-QGroupBox#ctrl1 {
+QGroupBox#ctrl1, QGroupBox#ctrl2{
     font-size: 16px;
     border: 2px solid silver;
     border-radius: 5px;
     margin-top: 14px;
 }
-QGroupBox#ctrl1::title {
+QGroupBox#ctrl1::title, QGroupBox#ctrl2::title {
     subcontrol-origin: margin;
     left: 20px;
     margin: 0px 0px 20px 0px;
