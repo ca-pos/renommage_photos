@@ -21,16 +21,14 @@ class MainWindow(QMainWindow):
         photos_test_short = ('_DSC7986.NEF', '_DSC8064.NEF', '_DSC8080.NEF', '_DSC8081.NEF', '_DSC8084.NEF')
         # longer list: 
         photos_test_long = ('_DSC7986.NEF', '_DSC8064.NEF', '_DSC8080.NEF', '_DSC8081.NEF', '_DSC8084.NEF', '_DSC8134.NEF', '_DSC8135.NEF', '_DSC8145.NEF', '_DSC8146.NEF', '_DSC8147.NEF', '_DSC8148.NEF', '_DSC8149.NEF')
-        photos_test = photos_test_short
+        self.photos_test = photos_test_short
         # development only ------------------------------------------------------
-
         self.eventFilter = KeyPressFilter(parent=self)
         self.installEventFilter(self.eventFilter)
 
-        self.create_thumb_jpeg(photos_test)
+        self.create_thumb_jpeg(self.photos_test)
         self.setUI()
         self.show_display()
-        # self.show_controls()
 #--------------------------------------------------------------------------------
     def create_thumb_jpeg(self, photos_test: tuple):
         """
@@ -41,6 +39,7 @@ class MainWindow(QMainWindow):
             photos_test: list[str] 
                 list of the RAW files from which the JPEG is to be extracted
         """
+
         os.makedirs(TMP_DIR, exist_ok=True)
         for i in range(0, len(photos_test)):
             photo_file = f'./pictures/{photos_test[i]}'
@@ -62,7 +61,7 @@ class MainWindow(QMainWindow):
     def show_display(self):
         controls = Controls()
         # creates widget gallery (contains Thumbnails objects)
-        gallery = Gallery(controls)
+        gallery = Gallery(controls, self.photos_test)
         # creates scrollarea (contains gallery)
         display = Display(gallery)
         # adds scrollarea to main layout (central widget)

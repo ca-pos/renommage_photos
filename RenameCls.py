@@ -58,7 +58,6 @@ class PhotoExif():
         self.dir = str(path.cwd()) # maybe useless
         self.original_name = path.stem
         self.original_suffix = path.suffix
-        # print('xxx', '/'.join([self.dir, file]))
         meta_data = pyexiv2.ImageMetadata(file)
         meta_data.read()
         self.date = meta_data['Exif.Image.DateTimeOriginal'].value.strftime('%Y %m %d')
@@ -103,14 +102,14 @@ class Gallery(QWidget):
     Class Variables:
         hidden_list: list of the thumbnails to be displayed blurred
     """
-    def __init__(self, controls):
+    def __init__(self, controls, fichier_raw):
         """
         __init__ creates Gallery objects
         """
         super().__init__()
         # development only ---------------------------------------------------------
-        fichier_raw = [str(fichier) for fichier in Path('./pictures').glob('*.NEF')]
-        fichier_raw = sorted(fichier_raw)
+        # fichier_raw = [str(fichier) for fichier in Path('./pictures').glob('*.NEF')]
+        # fichier_raw = sorted(fichier_raw)
         #----------------------------------------------------------------------------
         self.first = -1
         self.last = -1
@@ -130,7 +129,7 @@ class Gallery(QWidget):
             if i_thumb > 4:       
                continue
             # development -----------------------------------
-            photo_file = fichier_raw[i_thumb]
+            photo_file = 'pictures/' + fichier_raw[i_thumb]
             th = Thumbnails(photo_file)
             self.layout.addWidget(th)
             th.set_bg_color(self.assign_bg_color(th.rank))
