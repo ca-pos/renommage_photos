@@ -363,36 +363,31 @@ class Controls(QWidget):
     def __init__(self):
         super().__init__()
 
-        vbox_lbl = QVBoxLayout()
+        # vbox_lbl = QVBoxLayout()
         vbox_btn = QVBoxLayout()
         # add suffix to selection
-        lbl_slice_date = QLabel('Ajouter un suffixe à la date de la sélection')
-        btn_slice_date = QPushButton('')
-        btn_slice_date.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
+        btn_slice_date = QPushButton('Ajouter un suffixe à la date de la sélection')
+        # btn_slice_date.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
         btn_slice_date.clicked.connect(self._slice)
         # clear checked list
-        lbl_clear_checked_list = QLabel('Supprimer la sélection')
-        btn_clear_checked_list = QPushButton('')
-        btn_clear_checked_list.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
+        btn_clear_checked_list = QPushButton('Tout désélectionner')
+        # btn_clear_checked_list.setFixedSize(BUTTON_V_SIZE, BUTTON_V_SIZE)
         btn_clear_checked_list.clicked.connect(self._clear_selection)
         
         # add widgets to vboxes
-        vbox_lbl.addWidget(lbl_slice_date)
         vbox_btn.addWidget(btn_slice_date)
-        vbox_lbl.addWidget(lbl_clear_checked_list)
         vbox_btn.addWidget(btn_clear_checked_list)
 
         layout = QGridLayout()
         self.setLayout(layout)
         groupbox_op = QGroupBox('Opérations')
         groupbox_op.setObjectName('ctrl1')
-        groupbox_op.setFixedSize(int(.48*H_SIZE), 100)
+        groupbox_op.setFixedSize(int(.3*H_SIZE), 100)
         layout.addWidget(groupbox_op)
         layout.setColumnStretch(1, 5)
 
         # add vboxes to hbox
         hbox = QHBoxLayout()
-        hbox.addLayout(vbox_lbl)
         hbox.addLayout(vbox_btn)
         # set self layout
         self.setLayout(hbox)
@@ -420,7 +415,7 @@ class Thumbnails(QWidget):
         QWidget: QWidget
 
     Signals:
-        When status is changed (hidden/shown) a changed signal is emitted which contains the the exif original name (stem)
+        When status is changed (hidden/shown) a changed signal is emitted which contains the exif original name (stem)
     """
     selected = Signal(bool)
     colored = Signal(str)
